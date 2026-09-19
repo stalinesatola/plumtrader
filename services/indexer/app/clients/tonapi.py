@@ -1,0 +1,38 @@
+import httpx
+
+from app.config import settings
+
+
+class TonApiClient:
+    """Cliente para a TonAPI.io (dados de jettons, holders e transações na TON)."""
+
+    def __init__(self) -> None:
+        headers = {}
+        if settings.tonapi_key:
+            headers["Authorization"] = f"Bearer {settings.tonapi_key}"
+        self._client = httpx.AsyncClient(
+            base_url=settings.tonapi_base_url, headers=headers, timeout=10.0
+        )
+
+    async def get_jetton(self, address: str) -> dict:
+        resp = await self._client.get(f"/v2/jettons/{address}")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_jetton_holders(self, address: str, limit: int = 20) -> dict:
+        resp = await self._client.get(
+            f"/v2/jettons/{address}/holders", params={"limit": limit}
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def search_jettons(self, query: str) -> dict:
+        resp = await self._client.get("/v2/jettons", params={"query": query})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
+
+tonapi_client = TonApiClient()

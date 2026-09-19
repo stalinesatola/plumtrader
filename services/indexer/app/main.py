@@ -57,7 +57,8 @@ async def health() -> dict:
 async def list_tokens() -> list[Token]:
     try:
         async with async_session() as session:
-            rows = (await session.execute(select(TokenRow))).scalars().all()
+            query = select(TokenRow).order_by(TokenRow.liquidity_usd.desc().nullslast())
+            rows = (await session.execute(query)).scalars().all()
     except Exception:
         logger.exception("database unavailable, returning empty token list")
         return []

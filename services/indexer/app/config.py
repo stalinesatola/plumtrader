@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # sem key (rate limit) e o Postgres free tier à toa, já que a lista de
     # jettons indexados não muda a cada poucos segundos.
     poll_interval_seconds: int = 600
+    # Tokens "em destaque" (maior liquidez nos pools do STON.fi) — bem
+    # mais barato que a listagem completa, então roda mais seguido.
+    featured_poll_interval_seconds: int = 300
 
     class Config:
         env_file = ".env"

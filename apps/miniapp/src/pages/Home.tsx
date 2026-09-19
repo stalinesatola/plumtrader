@@ -50,7 +50,7 @@ export function Home() {
   return (
     <div className="pt-app">
       <header className="pt-header">
-        <div className="pt-logo">P</div>
+        <img src="/icon.png" alt="PlumTrader" className="pt-logo-img" />
         <div>
           <h1 className="pt-title">PlumTrader</h1>
           <p className="pt-subtitle">Memecoins e jettons na rede TON</p>

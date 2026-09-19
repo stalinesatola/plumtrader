@@ -13,8 +13,7 @@ Veja a arquitetura completa em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 Bot oficial de teste, já configurado no BotFather com o Mini App:
 👉 https://t.me/plum_app_bot/plumtrader
 
-Mini App em deploy de teste (só o front-end, sem o api-gateway/indexer
-publicados ainda, então a listagem de tokens fica vazia por enquanto):
+Mini App em deploy de teste:
 👉 https://plumtrader-app.vercel.app
 
 O link do `t.me` acima é a forma recomendada de testar — abre o Mini App
@@ -22,6 +21,36 @@ dentro do próprio Telegram, com o SDK do WebApp funcionando por completo
 (tema nativo, botões, `initData`). O link do Vercel serve para testar só
 o front-end no navegador: fora do Telegram o SDK roda em modo de
 compatibilidade e a tela de conexão TonConnect funciona normalmente.
+
+O backend (api-gateway + indexer) também está publicado como demo na
+Vercel (`plumtrader-gateway.vercel.app` e `plumtrader-indexer.vercel.app`),
+mas lá roda **sem Postgres real** — cada serverless function é sem
+estado, então `/tokens` sempre responde lista vazia e o `APScheduler` do
+indexer não persiste entre chamadas. Para rodar com banco e watchlist de
+verdade, use o Blueprint do Render (próxima seção) ou o
+`deploy/docker-compose.yml` local.
+
+## Deploy com banco de verdade (Render)
+
+Este repo tem um [`render.yaml`](render.yaml) (Render Blueprint) com
+Postgres + os 3 serviços (`indexer`, `api-gateway`, `bot` como Background
+Worker). Diferente da demo na Vercel, aqui o Postgres é real e o
+`APScheduler` do indexer roda continuamente.
+
+1. No dashboard do Render, **New → Blueprint** e aponte para este
+   repositório (`stalinesatola/plumtrader`).
+2. O Render vai pedir os valores dos env vars marcados `sync: false`:
+   `TELEGRAM_BOT_TOKEN` (do @BotFather), e opcionalmente `TONAPI_KEY` /
+   `TONCENTER_API_KEY`.
+3. `render.yaml` assume que o `plumtrader-gateway` e o `plumtrader-indexer`
+   ficam em `https://<nome-do-serviço>.onrender.com` — se o Render sufixar
+   o nome (porque já está em uso), ajuste `INDEXER_URL` no serviço
+   `plumtrader-gateway` manualmente no dashboard após o primeiro deploy.
+4. Atualize `VITE_API_BASE_URL` do projeto do miniapp (na Vercel ou onde
+   estiver hospedado) para a URL do `plumtrader-gateway` no Render.
+
+O plano `free` do Postgres do Render expira depois de um tempo — bom para
+testar, não para produção.
 
 ## Estrutura
 

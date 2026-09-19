@@ -1,0 +1,53 @@
+databases:
+  - name: plumtrader-db
+    plan: free
+    databaseName: plumtrader
+    user: plumtrader
+
+services:
+  - type: web
+    name: plumtrader-indexer
+    runtime: python
+    plan: free
+    rootDir: services/indexer
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: plumtrader-db
+          property: connectionString
+      - key: TONAPI_KEY
+        sync: false
+      - key: TONCENTER_API_KEY
+        sync: false
+
+  - type: web
+    name: plumtrader-gateway
+    runtime: go
+    plan: free
+    rootDir: services/api-gateway
+    buildCommand: go build -o bin/api-gateway ./cmd/api-gateway
+    startCommand: ./bin/api-gateway
+    envVars:
+      # Assume o subdomínio padrão que o Render dá ao serviço acima pelo
+      # nome (plumtrader-indexer.onrender.com). Se o Render escolher um
+      # nome diferente (nome já em uso por outra conta), ajuste aqui no
+      # dashboard depois do primeiro deploy.
+      - key: INDEXER_URL
+        value: https://plumtrader-indexer.onrender.com
+
+  - type: worker
+    name: plumtrader-bot
+    runtime: go
+    plan: free
+    rootDir: apps/bot
+    buildCommand: go build -o bin/bot ./cmd/bot
+    startCommand: ./bin/bot
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: MINIAPP_URL
+        value: https://t.me/plum_app_bot/plumtrader
+      - key: API_GATEWAY_URL
+        value: https://plumtrader-gateway.onrender.com

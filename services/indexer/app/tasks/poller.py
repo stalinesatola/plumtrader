@@ -10,44 +10,70 @@ from app.db import TokenRow, async_session
 
 logger = logging.getLogger(__name__)
 
-# Endereços de jettons "seed" para acompanhar por padrão. Em produção isto
-# viria de uma lista configurável (watchlist do usuário, trending do TonAPI).
-WATCHED_JETTONS: list[str] = []
+# Em vez de uma watchlist fixa (que exigiria endereços de contrato
+# digitados à mão — arriscado numa plataforma de trading, um endereço
+# errado manda o usuário pro token errado), a watchlist é populada
+# dinamicamente com os jettons que a própria TonAPI indexa.
+#
+# MAX_PAGES limita quantas páginas de MAX_PAGE_SIZE jettons são buscadas
+# por ciclo, para não sobrecarregar o Postgres free tier nem estourar o
+# rate limit da TonAPI sem key. Ajuste conforme necessário.
+MAX_PAGE_SIZE = 1000
+MAX_PAGES = 3
 
 
 async def refresh_watched_tokens() -> None:
-    if not WATCHED_JETTONS:
-        return
     async with async_session() as session:
-        for address in WATCHED_JETTONS:
-            try:
-                data = await tonapi_client.get_jetton(address)
-            except Exception:
-                logger.exception("failed to refresh jetton %s", address)
-                continue
+        last_account_id: str | None = None
+        total = 0
 
-            metadata = data.get("metadata", {})
-            stmt = (
-                insert(TokenRow)
-                .values(
-                    address=address,
-                    symbol=metadata.get("symbol", "?"),
-                    name=metadata.get("name", "Unknown"),
-                    price_usd=None,
-                    liquidity_usd=None,
-                    updated_at=int(time.time()),
+        for _ in range(MAX_PAGES):
+            try:
+                data = await tonapi_client.list_jettons(
+                    limit=MAX_PAGE_SIZE, last_account_id=last_account_id
                 )
-                .on_conflict_do_update(
-                    index_elements=[TokenRow.address],
-                    set_={
-                        "symbol": metadata.get("symbol", "?"),
-                        "name": metadata.get("name", "Unknown"),
-                        "updated_at": int(time.time()),
-                    },
+            except Exception:
+                logger.exception("failed to list jettons from TonAPI")
+                break
+
+            jettons = data.get("jettons", [])
+            if not jettons:
+                break
+
+            for jetton in jettons:
+                metadata = jetton.get("metadata", {})
+                address = metadata.get("address")
+                if not address:
+                    continue
+
+                stmt = (
+                    insert(TokenRow)
+                    .values(
+                        address=address,
+                        symbol=metadata.get("symbol", "?"),
+                        name=metadata.get("name", "Unknown"),
+                        price_usd=None,
+                        liquidity_usd=None,
+                        updated_at=int(time.time()),
+                    )
+                    .on_conflict_do_update(
+                        index_elements=[TokenRow.address],
+                        set_={
+                            "symbol": metadata.get("symbol", "?"),
+                            "name": metadata.get("name", "Unknown"),
+                            "updated_at": int(time.time()),
+                        },
+                    )
                 )
-            )
-            await session.execute(stmt)
+                await session.execute(stmt)
+                total += 1
+
+            last_account_id = jettons[-1].get("metadata", {}).get("address")
+            if not last_account_id or len(jettons) < MAX_PAGE_SIZE:
+                break
+
         await session.commit()
+        logger.info("refreshed %d jettons from TonAPI", total)
 
 
 def start_scheduler() -> AsyncIOScheduler:

@@ -31,6 +31,17 @@ class TonApiClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def list_jettons(self, limit: int = 1000, last_account_id: str | None = None) -> dict:
+        """Lista jettons indexados pela TonAPI (GET /v2/jettons), paginado
+        por cursor via ``last_account_id`` em vez de ``offset`` (deprecado).
+        """
+        params: dict = {"limit": limit}
+        if last_account_id:
+            params["last_account_id"] = last_account_id
+        resp = await self._client.get("/v2/jettons", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
     async def aclose(self) -> None:
         await self._client.aclose()
 

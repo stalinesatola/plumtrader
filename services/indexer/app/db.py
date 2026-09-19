@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Float, String
+from sqlalchemy import BigInteger, Float, Index, Integer, String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -33,6 +33,22 @@ class TokenRow(Base):
     price_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     liquidity_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     updated_at: Mapped[int] = mapped_column(BigInteger)
+
+
+class PriceHistoryRow(Base):
+    """Snapshot append-only de preço, usado para montar o gráfico de
+    variação (ex.: últimos 30 dias). Só grava pontos reais calculados a
+    partir das reservas do pool — nunca preenche lacunas com dado
+    inventado."""
+
+    __tablename__ = "price_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    address: Mapped[str] = mapped_column(String, index=True)
+    price_usd: Mapped[float] = mapped_column(Float)
+    recorded_at: Mapped[int] = mapped_column(BigInteger)
+
+    __table_args__ = (Index("ix_price_history_address_recorded_at", "address", "recorded_at"),)
 
 
 async def init_db() -> None:

@@ -16,6 +16,7 @@ import (
 )
 
 const defaultPageLimit = 20
+const defaultHistoryDays = 30
 
 func parseIntParam(r *http.Request, name string, fallback int) int {
 	raw := r.URL.Query().Get(name)
@@ -70,6 +71,18 @@ func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 		r.Get("/{address}/tonscan", func(w http.ResponseWriter, r *http.Request) {
 			address := chi.URLParam(r, "address")
 			writeJSON(w, http.StatusOK, map[string]string{"url": tonscan.JettonURL(address)})
+		})
+
+		r.Get("/{address}/price-history", func(w http.ResponseWriter, r *http.Request) {
+			address := chi.URLParam(r, "address")
+			days := parseIntParam(r, "days", defaultHistoryDays)
+
+			points, err := indexerClient.GetPriceHistory(address, days)
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusOK, points)
 		})
 	})
 

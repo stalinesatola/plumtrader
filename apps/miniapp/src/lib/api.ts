@@ -15,6 +15,11 @@ export interface TokenPage {
   total: number;
 }
 
+export interface PricePoint {
+  timestamp: string;
+  price_usd: number;
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   const resp = await fetch(`${API_BASE_URL}${path}`);
   if (!resp.ok) {
@@ -29,4 +34,8 @@ export function listTokens(limit: number, offset: number): Promise<TokenPage> {
 
 export function getToken(address: string): Promise<Token> {
   return getJSON<Token>(`/api/tokens/${address}`);
+}
+
+export function getPriceHistory(address: string, days = 30): Promise<PricePoint[]> {
+  return getJSON<PricePoint[]>(`/api/tokens/${address}/price-history?days=${days}`);
 }

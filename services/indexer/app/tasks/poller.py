@@ -5,12 +5,16 @@ import time
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.dialects.postgresql import insert
 
+from sqlalchemy import delete
+
 from app.clients.dex import stonfi_client
 from app.clients.tonapi import tonapi_client
 from app.config import settings
-from app.db import TokenRow, async_session
+from app.db import PriceHistoryRow, TokenRow, async_session
 
 logger = logging.getLogger(__name__)
+
+PRICE_HISTORY_RETENTION_SECONDS = 30 * 24 * 60 * 60  # 30 dias
 
 # Quantos pools (por liquidez) usar para montar os "tokens em destaque".
 # Cada pool tem 2 lados (token0/token1), então isso rende até 2x esse
@@ -144,6 +148,7 @@ async def refresh_featured_tokens() -> None:
 
     async with async_session() as session:
         total = 0
+        now = int(time.time())
         for address, (liquidity_usd, pool, is_token0) in best.items():
             try:
                 info = await tonapi_client.get_jetton(address)
@@ -166,7 +171,7 @@ async def refresh_featured_tokens() -> None:
                     name=metadata.get("name", "Unknown"),
                     price_usd=price_usd,
                     liquidity_usd=liquidity_usd,
-                    updated_at=int(time.time()),
+                    updated_at=now,
                 )
                 .on_conflict_do_update(
                     index_elements=[TokenRow.address],
@@ -175,12 +180,24 @@ async def refresh_featured_tokens() -> None:
                         "name": metadata.get("name", "Unknown"),
                         "price_usd": price_usd,
                         "liquidity_usd": liquidity_usd,
-                        "updated_at": int(time.time()),
+                        "updated_at": now,
                     },
                 )
             )
             await session.execute(stmt)
             total += 1
+
+            # Só grava histórico quando temos um preço real derivado das
+            # reservas — nunca um ponto vazio/inventado.
+            if price_usd is not None:
+                await session.execute(
+                    PriceHistoryRow.__table__.insert().values(
+                        address=address, price_usd=price_usd, recorded_at=now
+                    )
+                )
+
+        cutoff = now - PRICE_HISTORY_RETENTION_SECONDS
+        await session.execute(delete(PriceHistoryRow).where(PriceHistoryRow.recorded_at < cutoff))
 
         await session.commit()
         logger.info("refreshed %d featured tokens from STON.fi pools", total)

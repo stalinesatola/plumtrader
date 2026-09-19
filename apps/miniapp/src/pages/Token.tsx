@@ -2,7 +2,8 @@ import { TonConnectButton, useTonConnectUI } from "@tonconnect/ui-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { getToken, type Token as TokenData } from "../lib/api";
+import { PriceSparkline } from "../components/PriceSparkline";
+import { getPriceHistory, getToken, type PricePoint, type Token as TokenData } from "../lib/api";
 import { buildSwapTransaction } from "../lib/tonconnect";
 
 function truncateAddress(address: string): string {
@@ -13,6 +14,7 @@ function truncateAddress(address: string): string {
 export function Token() {
   const { address = "" } = useParams();
   const [token, setToken] = useState<TokenData | null>(null);
+  const [history, setHistory] = useState<PricePoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tonConnectUI] = useTonConnectUI();
 
@@ -20,6 +22,12 @@ export function Token() {
     getToken(address)
       .then(setToken)
       .catch((err: Error) => setError(err.message));
+
+    // Histórico é "melhor esforço": se falhar, o resto da tela do token
+    // continua funcionando normalmente, só sem o gráfico.
+    getPriceHistory(address, 30)
+      .then(setHistory)
+      .catch(() => setHistory([]));
   }, [address]);
 
   async function handleSwap() {
@@ -77,6 +85,13 @@ export function Token() {
             <a href={token.tonscan_url} target="_blank" rel="noreferrer">
               Ver no Tonscan ↗
             </a>
+          </div>
+
+          <div className="pt-card" style={{ marginTop: 12 }}>
+            <div className="pt-stat-label" style={{ marginBottom: 8 }}>
+              Últimos 30 dias
+            </div>
+            <PriceSparkline points={history} />
           </div>
 
           <section className="pt-section">

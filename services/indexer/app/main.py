@@ -1,5 +1,7 @@
 import logging
+import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,11 +11,12 @@ from app.clients.dex import dedust_client, stonfi_client
 from app.clients.tonapi import tonapi_client
 from app.clients.toncenter import toncenter_client
 from app.config import settings
-from app.db import TokenRow, async_session, init_db
-from app.models import Token, TokenPage
+from app.db import PriceHistoryRow, TokenRow, async_session, init_db
+from app.models import PricePoint, Token, TokenPage
 from app.tasks.poller import start_scheduler
 
 MAX_PAGE_LIMIT = 100
+MAX_HISTORY_DAYS = 30
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +101,53 @@ async def get_token(address: str) -> Token:
         raise HTTPException(status_code=404, detail="jetton not found") from exc
 
     metadata = data.get("metadata", {})
+
+    # A metadata vem sempre fresca da TonAPI, mas preço/liquidez só
+    # existem no nosso cache (calculados pelo job de destaques) — sem
+    # isso, a tela do token sempre mostraria "—".
+    price_usd = None
+    liquidity_usd = None
+    try:
+        async with async_session() as session:
+            row = await session.get(TokenRow, address)
+            if row is not None:
+                price_usd = row.price_usd
+                liquidity_usd = row.liquidity_usd
+    except Exception:
+        logger.exception("database unavailable, skipping cached price/liquidity")
+
     return Token(
         address=address,
         symbol=metadata.get("symbol", "?"),
         name=metadata.get("name", "Unknown"),
         image=metadata.get("image"),
+        price_usd=price_usd,
+        liquidity_usd=liquidity_usd,
         tonscan_url=f"{settings.tonscan_base_url}/jetton/{address}",
     )
+
+
+@app.get("/tokens/{address}/price-history", response_model=list[PricePoint])
+async def get_price_history(address: str, days: int = MAX_HISTORY_DAYS) -> list[PricePoint]:
+    days = max(1, min(days, MAX_HISTORY_DAYS))
+    cutoff = int(time.time()) - days * 24 * 60 * 60
+
+    try:
+        async with async_session() as session:
+            query = (
+                select(PriceHistoryRow)
+                .where(PriceHistoryRow.address == address, PriceHistoryRow.recorded_at >= cutoff)
+                .order_by(PriceHistoryRow.recorded_at.asc())
+            )
+            rows = (await session.execute(query)).scalars().all()
+    except Exception:
+        logger.exception("database unavailable, returning empty price history")
+        return []
+
+    return [
+        PricePoint(timestamp=datetime.fromtimestamp(row.recorded_at, tz=timezone.utc), price_usd=row.price_usd)
+        for row in rows
+    ]
 
 
 @app.get("/tokens/{address}/pools")

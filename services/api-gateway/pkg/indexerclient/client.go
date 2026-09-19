@@ -58,6 +58,20 @@ func (c *Client) GetToken(address string) (*Token, error) {
 	return &token, nil
 }
 
+func (c *Client) GetPriceHistory(address string, days int) ([]PricePoint, error) {
+	var points []PricePoint
+	path := fmt.Sprintf("/tokens/%s/price-history?days=%d", address, days)
+	if err := c.get(path, &points); err != nil {
+		return nil, err
+	}
+	return points, nil
+}
+
+type PricePoint struct {
+	Timestamp string  `json:"timestamp"`
+	PriceUSD  float64 `json:"price_usd"`
+}
+
 type Token struct {
 	Address      string   `json:"address"`
 	Symbol       string   `json:"symbol"`

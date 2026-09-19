@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.clients.dex import dedust_client, stonfi_client
 from app.clients.tonapi import tonapi_client
@@ -13,7 +13,7 @@ from app.clients.toncenter import toncenter_client
 from app.config import settings
 from app.db import PriceHistoryRow, TokenRow, async_session, init_db
 from app.models import PricePoint, Token, TokenPage
-from app.tasks.poller import start_scheduler
+from app.tasks.poller import MIN_FEATURED_LIQUIDITY_USD, start_scheduler
 
 MAX_PAGE_LIMIT = 100
 MAX_HISTORY_DAYS = 30
@@ -65,11 +65,23 @@ async def list_tokens(limit: int = 20, offset: int = 0) -> TokenPage:
 
     try:
         async with async_session() as session:
+            # Esconde tokens com liquidez medida abaixo do mínimo (ruído,
+            # risco alto de slippage/rug); mantém os que ainda não tiveram
+            # a liquidez calculada (liquidity_usd nulo, vindos só da
+            # sincronização geral de jettons) — ausência de dado não é o
+            # mesmo que liquidez baixa confirmada.
+            liquidity_filter = or_(
+                TokenRow.liquidity_usd.is_(None),
+                TokenRow.liquidity_usd >= MIN_FEATURED_LIQUIDITY_USD,
+            )
             total = (
-                await session.execute(select(func.count()).select_from(TokenRow))
+                await session.execute(
+                    select(func.count()).select_from(TokenRow).where(liquidity_filter)
+                )
             ).scalar_one()
             query = (
                 select(TokenRow)
+                .where(liquidity_filter)
                 .order_by(TokenRow.liquidity_usd.desc().nullslast())
                 .limit(limit)
                 .offset(offset)

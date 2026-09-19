@@ -3,9 +3,8 @@ import logging
 import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy.dialects.postgresql import insert
-
 from sqlalchemy import delete
+from sqlalchemy.dialects.postgresql import insert
 
 from app.clients.dex import stonfi_client
 from app.clients.tonapi import tonapi_client
@@ -20,6 +19,10 @@ PRICE_HISTORY_RETENTION_SECONDS = 30 * 24 * 60 * 60  # 30 dias
 # Cada pool tem 2 lados (token0/token1), então isso rende até 2x esse
 # número de tokens distintos.
 FEATURED_POOL_LIMIT = 15
+
+# Pools abaixo disso são ruído (liquidez baixa demais pra um preço
+# confiável, risco alto de slippage/rug) — não entram nos destaques.
+MIN_FEATURED_LIQUIDITY_USD = 1000.0
 
 # Em vez de uma watchlist fixa (que exigiria endereços de contrato
 # digitados à mão — arriscado numa plataforma de trading, um endereço
@@ -129,7 +132,11 @@ async def refresh_featured_tokens() -> None:
         logger.exception("failed to fetch STON.fi pools for featured tokens")
         return
 
-    active_pools = [p for p in data.get("pool_list", []) if not p.get("deprecated")]
+    active_pools = [
+        p
+        for p in data.get("pool_list", [])
+        if not p.get("deprecated") and _pool_liquidity_usd(p) >= MIN_FEATURED_LIQUIDITY_USD
+    ]
     top_pools = sorted(active_pools, key=_pool_liquidity_usd, reverse=True)[:FEATURED_POOL_LIMIT]
 
     # endereço -> (liquidez, pool onde apareceu com mais liquidez, é token0?)

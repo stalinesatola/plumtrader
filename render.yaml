@@ -37,7 +37,10 @@ services:
       - key: INDEXER_URL
         value: https://plumtrader-indexer.onrender.com
 
-  - type: worker
+  # O plano free do Render não roda "Background Worker" (type: worker),
+  # só Web Service e Static Site — por isso o bot sobe como "web" mesmo
+  # não servindo nada de útil em $PORT (só um health-check).
+  - type: web
     name: plumtrader-bot
     runtime: go
     plan: free

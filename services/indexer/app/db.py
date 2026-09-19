@@ -4,7 +4,19 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.config import settings
 
-engine = create_async_engine(settings.database_url, echo=False)
+
+def _to_asyncpg_url(url: str) -> str:
+    # Render/Heroku-style providers entregam "postgres://" ou
+    # "postgresql://" (driver síncrono); o SQLAlchemy async precisa do
+    # dialeto asyncpg explícito no esquema da URL.
+    if url.startswith("postgres://"):
+        return "postgresql+asyncpg://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + url[len("postgresql://") :]
+    return url
+
+
+engine = create_async_engine(_to_asyncpg_url(settings.database_url), echo=False)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 

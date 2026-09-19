@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -39,6 +40,22 @@ func main() {
 	bot.Handle("/start", deps.HandleStart)
 	bot.Handle("/help", deps.HandleHelp)
 	bot.Handle("/price", deps.HandlePrice)
+
+	// O bot funciona por long-polling, sem precisar de porta HTTP. Mas
+	// plataformas como o Render (no plano free) só rodam serviços do tipo
+	// "Web Service", que exigem responder em $PORT — então expomos um
+	// health-check mínimo só para satisfazer esse requisito de infra.
+	go func() {
+		port := getenv("PORT", "8081")
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("plumtrader bot is running"))
+		})
+		log.Printf("health-check server listening on :%s", port)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Printf("health-check server error: %v", err)
+		}
+	}()
 
 	log.Printf("plumtrader bot authorized as @%s", bot.Me.Username)
 	bot.Start()

@@ -5,6 +5,7 @@ import { listTokens, type Token } from "../lib/api";
 
 const PAGE_SIZE = 10;
 const FEATURED_COUNT = 8;
+const SEARCH_DEBOUNCE_MS = 300;
 
 function formatPrice(price: number): string {
   return price < 0.01 ? price.toFixed(8) : price.toFixed(4);
@@ -14,33 +15,42 @@ function formatLiquidity(value: number): string {
   return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
-type Tab = "featured" | "all";
-
 export function Home() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("featured");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Debounce: só dispara a busca no backend depois que o usuário para de
+  // digitar, e volta pra página 0 a cada nova busca.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(0);
+      setSearch(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   useEffect(() => {
     setLoading(true);
     setError(null);
-    listTokens(PAGE_SIZE, page * PAGE_SIZE)
+    listTokens(PAGE_SIZE, page * PAGE_SIZE, search || undefined)
       .then((result) => {
         setTokens(result.items);
         setTotal(result.total);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, search]);
 
-  // A API já ordena por liquidez desc, então os primeiros da página 0 são
-  // os "destaques" de verdade — não é uma lista escolhida à mão.
-  const featured = page === 0 ? tokens.slice(0, FEATURED_COUNT) : [];
-  const tableRows = tab === "featured" ? tokens.slice(0, FEATURED_COUNT) : tokens;
+  // A API já ordena por liquidez desc, então os primeiros da página 0 (sem
+  // busca ativa) são os "destaques" de verdade — não é uma lista escolhida
+  // à mão. Com busca ativa, os cards de destaque não fazem sentido.
+  const featured = page === 0 && !search ? tokens.slice(0, FEATURED_COUNT) : [];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function openToken(address: string) {
@@ -57,9 +67,17 @@ export function Home() {
         </div>
       </header>
 
+      <input
+        type="search"
+        className="pt-search"
+        placeholder="Buscar por nome, símbolo ou endereço…"
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+      />
+
       {error && <div className="pt-alert">Não foi possível carregar tokens: {error}</div>}
 
-      {page === 0 && featured.length > 0 && (
+      {featured.length > 0 && (
         <div className="pt-featured-grid">
           {featured.map((token, i) => (
             <div
@@ -83,26 +101,15 @@ export function Home() {
         </div>
       )}
 
-      <div className="pt-tabs">
-        <button
-          className="pt-tab"
-          data-active={tab === "featured"}
-          onClick={() => setTab("featured")}
-        >
-          Destaques
-        </button>
-        <button className="pt-tab" data-active={tab === "all"} onClick={() => setTab("all")}>
-          Todos
-        </button>
-      </div>
-
       {loading && <div className="pt-empty-state">Carregando tokens…</div>}
 
-      {!loading && !error && tableRows.length === 0 && (
-        <div className="pt-empty-state">Nenhum token na watchlist ainda.</div>
+      {!loading && !error && tokens.length === 0 && (
+        <div className="pt-empty-state">
+          {search ? `Nenhum token encontrado para "${search}".` : "Nenhum token na watchlist ainda."}
+        </div>
       )}
 
-      {!loading && tableRows.length > 0 && (
+      {!loading && tokens.length > 0 && (
         <div className="pt-table-wrapper">
           <table className="pt-table">
             <thead>
@@ -114,7 +121,7 @@ export function Home() {
               </tr>
             </thead>
             <tbody>
-              {tableRows.map((token, i) => (
+              {tokens.map((token, i) => (
                 <tr key={token.address} onClick={() => openToken(token.address)}>
                   <td className="pt-table-rank">{page * PAGE_SIZE + i + 1}</td>
                   <td>
@@ -144,7 +151,7 @@ export function Home() {
         </div>
       )}
 
-      {tab === "all" && !loading && total > PAGE_SIZE && (
+      {!loading && total > PAGE_SIZE && (
         <div className="pt-pagination">
           <span className="pt-pagination-info">
             Página {page + 1} de {totalPages} · {total} tokens

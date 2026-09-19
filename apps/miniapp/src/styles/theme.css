@@ -230,29 +230,26 @@ a:hover {
   padding: 10px 12px;
 }
 
-/* Tabs */
-.pt-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.pt-tab {
+/* Busca */
+.pt-search {
+  width: 100%;
   appearance: none;
   border: 1px solid var(--pt-border);
   background: var(--pt-surface);
-  color: var(--pt-text-muted);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+  color: var(--pt-text);
+  border-radius: var(--pt-radius);
+  padding: 10px 14px;
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 
-.pt-tab[data-active="true"] {
+.pt-search::placeholder {
+  color: var(--pt-text-muted);
+}
+
+.pt-search:focus {
+  outline: none;
   border-color: var(--pt-accent);
-  color: #fff;
-  background: var(--pt-accent);
 }
 
 /* Cards de destaque */

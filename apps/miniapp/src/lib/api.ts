@@ -28,8 +28,9 @@ async function getJSON<T>(path: string): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
-export function listTokens(limit: number, offset: number): Promise<TokenPage> {
-  return getJSON<TokenPage>(`/api/tokens/?limit=${limit}&offset=${offset}`);
+export function listTokens(limit: number, offset: number, q?: string): Promise<TokenPage> {
+  const query = q ? `&q=${encodeURIComponent(q)}` : "";
+  return getJSON<TokenPage>(`/api/tokens/?limit=${limit}&offset=${offset}${query}`);
 }
 
 export function getToken(address: string): Promise<Token> {

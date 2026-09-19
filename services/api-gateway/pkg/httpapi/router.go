@@ -49,8 +49,9 @@ func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			limit := parseIntParam(r, "limit", defaultPageLimit)
 			offset := parseIntParam(r, "offset", 0)
+			q := r.URL.Query().Get("q")
 
-			page, err := indexerClient.ListTokens(limit, offset)
+			page, err := indexerClient.ListTokens(limit, offset, q)
 			if err != nil {
 				writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 				return

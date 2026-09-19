@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -36,9 +37,12 @@ func (c *Client) get(path string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-func (c *Client) ListTokens(limit, offset int) (*TokenPage, error) {
+func (c *Client) ListTokens(limit, offset int, q string) (*TokenPage, error) {
 	var page TokenPage
 	path := fmt.Sprintf("/tokens?limit=%d&offset=%d", limit, offset)
+	if q != "" {
+		path += "&q=" + url.QueryEscape(q)
+	}
 	if err := c.get(path, &page); err != nil {
 		return nil, err
 	}

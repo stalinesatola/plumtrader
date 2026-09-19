@@ -59,7 +59,7 @@ async def health() -> dict:
 
 
 @app.get("/tokens", response_model=TokenPage)
-async def list_tokens(limit: int = 20, offset: int = 0) -> TokenPage:
+async def list_tokens(limit: int = 20, offset: int = 0, q: str | None = None) -> TokenPage:
     limit = max(1, min(limit, MAX_PAGE_LIMIT))
     offset = max(0, offset)
 
@@ -70,18 +70,28 @@ async def list_tokens(limit: int = 20, offset: int = 0) -> TokenPage:
             # a liquidez calculada (liquidity_usd nulo, vindos só da
             # sincronização geral de jettons) — ausência de dado não é o
             # mesmo que liquidez baixa confirmada.
-            liquidity_filter = or_(
-                TokenRow.liquidity_usd.is_(None),
-                TokenRow.liquidity_usd >= MIN_FEATURED_LIQUIDITY_USD,
-            )
-            total = (
-                await session.execute(
-                    select(func.count()).select_from(TokenRow).where(liquidity_filter)
+            filters = [
+                or_(
+                    TokenRow.liquidity_usd.is_(None),
+                    TokenRow.liquidity_usd >= MIN_FEATURED_LIQUIDITY_USD,
                 )
+            ]
+            if q:
+                needle = f"%{q.strip()}%"
+                filters.append(
+                    or_(
+                        TokenRow.symbol.ilike(needle),
+                        TokenRow.name.ilike(needle),
+                        TokenRow.address == q.strip(),
+                    )
+                )
+
+            total = (
+                await session.execute(select(func.count()).select_from(TokenRow).where(*filters))
             ).scalar_one()
             query = (
                 select(TokenRow)
-                .where(liquidity_filter)
+                .where(*filters)
                 .order_by(TokenRow.liquidity_usd.desc().nullslast())
                 .limit(limit)
                 .offset(offset)

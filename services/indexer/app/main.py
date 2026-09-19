@@ -1,6 +1,8 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 from app.clients.dex import dedust_client, stonfi_client
@@ -11,13 +13,26 @@ from app.db import TokenRow, async_session, init_db
 from app.models import Token
 from app.tasks.poller import start_scheduler
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
-    scheduler = start_scheduler()
+    # O Postgres é opcional: sem DATABASE_URL acessível (ex.: deploy de
+    # demonstração sem banco provisionado ainda), a API continua no ar e
+    # /tokens simplesmente responde uma lista vazia em vez de derrubar o
+    # processo inteiro.
+    scheduler = None
+    try:
+        await init_db()
+        scheduler = start_scheduler()
+    except Exception:
+        logger.exception("database unavailable, running without cache/scheduler")
+
     yield
-    scheduler.shutdown()
+
+    if scheduler is not None:
+        scheduler.shutdown()
     await tonapi_client.aclose()
     await toncenter_client.aclose()
     await stonfi_client.aclose()
@@ -25,6 +40,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="PlumTrader Indexer", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -34,8 +55,12 @@ async def health() -> dict:
 
 @app.get("/tokens", response_model=list[Token])
 async def list_tokens() -> list[Token]:
-    async with async_session() as session:
-        rows = (await session.execute(select(TokenRow))).scalars().all()
+    try:
+        async with async_session() as session:
+            rows = (await session.execute(select(TokenRow))).scalars().all()
+    except Exception:
+        logger.exception("database unavailable, returning empty token list")
+        return []
     return [
         Token(
             address=row.address,

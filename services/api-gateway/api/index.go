@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	apphttp "github.com/stalinesatola/plumtrader/services/api-gateway/internal/http"
-	"github.com/stalinesatola/plumtrader/services/api-gateway/internal/indexer"
+	apphttp "github.com/stalinesatola/plumtrader/services/api-gateway/pkg/httpapi"
+	"github.com/stalinesatola/plumtrader/services/api-gateway/pkg/indexerclient"
 )
 
 var router http.Handler
@@ -19,7 +19,7 @@ func init() {
 	if indexerURL == "" {
 		indexerURL = "http://localhost:8000"
 	}
-	router = apphttp.NewRouter(indexer.NewClient(indexerURL))
+	router = apphttp.NewRouter(indexerclient.NewClient(indexerURL))
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {

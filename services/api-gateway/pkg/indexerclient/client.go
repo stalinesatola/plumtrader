@@ -1,7 +1,7 @@
-// Package indexer contains the HTTP client the api-gateway uses to talk to
-// the Python indexer service, which aggregates data from TonAPI, STON.fi and
-// DeDust.
-package indexer
+// Package indexerclient contains the HTTP client the api-gateway uses to
+// talk to the Python indexer service, which aggregates data from TonAPI,
+// STON.fi and DeDust.
+package indexerclient
 
 import (
 	"encoding/json"

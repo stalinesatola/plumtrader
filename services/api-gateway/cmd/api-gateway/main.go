@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"os"
 
-	apphttp "github.com/stalinesatola/plumtrader/services/api-gateway/internal/http"
-	"github.com/stalinesatola/plumtrader/services/api-gateway/internal/indexer"
+	apphttp "github.com/stalinesatola/plumtrader/services/api-gateway/pkg/httpapi"
+	"github.com/stalinesatola/plumtrader/services/api-gateway/pkg/indexerclient"
 )
 
 func getenv(key, fallback string) string {
@@ -20,7 +20,7 @@ func main() {
 	indexerURL := getenv("INDEXER_URL", "http://localhost:8000")
 	port := getenv("PORT", "8080")
 
-	indexerClient := indexer.NewClient(indexerURL)
+	indexerClient := indexerclient.NewClient(indexerURL)
 	router := apphttp.NewRouter(indexerClient)
 
 	log.Printf("plumtrader api-gateway listening on :%s (indexer=%s)", port, indexerURL)

@@ -1,6 +1,6 @@
-// Package http wires the REST API that the PlumTrader Mini App and bot
+// Package httpapi wires the REST API that the PlumTrader Mini App and bot
 // consume, backed by the Python indexer service.
-package http
+package httpapi
 
 import (
 	"encoding/json"
@@ -10,11 +10,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/stalinesatola/plumtrader/services/api-gateway/internal/indexer"
-	"github.com/stalinesatola/plumtrader/services/api-gateway/internal/tonscan"
+	"github.com/stalinesatola/plumtrader/services/api-gateway/pkg/indexerclient"
+	"github.com/stalinesatola/plumtrader/services/api-gateway/pkg/tonscan"
 )
 
-func NewRouter(indexerClient *indexer.Client) http.Handler {
+func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)

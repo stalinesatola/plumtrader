@@ -1,0 +1,21 @@
+# Env
+.env
+*.env.local
+
+# Node
+node_modules/
+dist/
+apps/miniapp/dist/
+apps/miniapp/tsconfig.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Go
+services/api-gateway/api-gateway
+apps/bot/bot
+
+# OS
+.DS_Store

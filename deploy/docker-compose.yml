@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: plumtrader
+      POSTGRES_PASSWORD: plumtrader
+      POSTGRES_DB: plumtrader
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  indexer:
+    build: ../services/indexer
+    environment:
+      DATABASE_URL: postgresql+asyncpg://plumtrader:plumtrader@postgres:5432/plumtrader
+      REDIS_URL: redis://redis:6379/0
+      TONAPI_KEY: ${TONAPI_KEY:-}
+      TONCENTER_API_KEY: ${TONCENTER_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  api-gateway:
+    build: ../services/api-gateway
+    environment:
+      INDEXER_URL: http://indexer:8000
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - indexer
+
+  bot:
+    build: ../apps/bot
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      API_GATEWAY_URL: http://api-gateway:8080
+      MINIAPP_URL: ${MINIAPP_URL:-https://example.com}
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres-data:

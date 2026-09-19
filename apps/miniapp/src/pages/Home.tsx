@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { listTokens, type Token } from "../lib/api";
 
 const PAGE_SIZE = 10;
-const FEATURED_COUNT = 3;
+const FEATURED_COUNT = 6;
 
 function formatPrice(price: number): string {
   return price < 0.01 ? price.toFixed(8) : price.toFixed(4);

@@ -38,7 +38,7 @@ export function Token() {
     const tx = buildSwapTransaction({
       fromAddress: tonConnectUI.account?.address ?? "",
       toJetton: token.address,
-      amountNano: "50000000", // 0.05 TON de exemplo
+      amountNano: "50000000", // 0.05 GRAM (nanoGRAM) de exemplo
       validUntil: Math.floor(Date.now() / 1000) + 300,
     });
 

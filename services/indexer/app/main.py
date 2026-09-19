@@ -171,8 +171,11 @@ async def get_price_history(address: str, days: int = MAX_HISTORY_DAYS) -> list[
 
 @app.get("/ton-price")
 async def get_ton_price() -> dict:
-    """Cotação da moeda nativa TON (não é um jetton, por isso não aparece
-    em /tokens — igual ETH não aparece como 'token ERC-20' no Etherscan)."""
+    """Cotação da moeda nativa da rede TON — renomeada de Toncoin/TON para
+    Gram (GRAM) em jun/2026, mas continua sendo a mesma moeda-base, não um
+    jetton (por isso não aparece em /tokens, igual ETH não aparece como
+    'token ERC-20' no Etherscan). A TonAPI ainda usa "ton" como
+    identificador técnico do ativo — o rebrand é só de exibição."""
     try:
         data = await tonapi_client.get_rates(tokens="ton", currencies="usd")
         ton_rates = data.get("rates", {}).get("TON", {})

@@ -27,8 +27,11 @@ export function Home() {
   const [tonPrice, setTonPrice] = useState<TonPrice | null>(null);
 
   useEffect(() => {
-    // TON é a moeda nativa da rede, não um jetton — por isso não aparece
-    // na tabela de tokens e vem de um endpoint à parte.
+    // GRAM (ticker desde o rebrand de jun/2026, ex-Toncoin/TON) é a moeda
+    // nativa da rede — não é um jetton, então não aparece na tabela de
+    // tokens e vem de um endpoint à parte. A rede continua se chamando
+    // TON (The Open Network); só o nome de exibição da moeda mudou, por
+    // isso a API (TonAPI) continua usando "ton" como identificador.
     getTonPrice()
       .then(setTonPrice)
       .catch(() => setTonPrice(null));
@@ -79,7 +82,7 @@ export function Home() {
       {tonPrice?.price_usd != null && (
         <div className="pt-card pt-ton-banner">
           <div>
-            <div className="pt-stat-label">TON</div>
+            <div className="pt-stat-label">GRAM (rede TON)</div>
             <div className="pt-stat-value">${formatPrice(tonPrice.price_usd)}</div>
           </div>
           {tonPrice.diff_24h && (

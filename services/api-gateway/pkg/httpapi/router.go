@@ -45,6 +45,15 @@ func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	r.Get("/api/ton-price", func(w http.ResponseWriter, r *http.Request) {
+		price, err := indexerClient.GetTonPrice()
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, price)
+	})
+
 	r.Route("/api/tokens", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			limit := parseIntParam(r, "limit", defaultPageLimit)

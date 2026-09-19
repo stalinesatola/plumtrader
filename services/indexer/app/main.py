@@ -65,16 +65,13 @@ async def list_tokens(limit: int = 20, offset: int = 0, q: str | None = None) ->
 
     try:
         async with async_session() as session:
-            # Esconde tokens com liquidez medida abaixo do mínimo (ruído,
-            # risco alto de slippage/rug); mantém os que ainda não tiveram
-            # a liquidez calculada (liquidity_usd nulo, vindos só da
-            # sincronização geral de jettons) — ausência de dado não é o
-            # mesmo que liquidez baixa confirmada.
+            # Só lista tokens com liquidez de verdade confirmada (>= o
+            # mínimo). A sincronização geral de jettons (sem preço/liquidez
+            # calculados) não aparece aqui — mostrar milhares de linhas com
+            # "—" em tudo não ajuda ninguém.
             filters = [
-                or_(
-                    TokenRow.liquidity_usd.is_(None),
-                    TokenRow.liquidity_usd >= MIN_FEATURED_LIQUIDITY_USD,
-                )
+                TokenRow.liquidity_usd.is_not(None),
+                TokenRow.liquidity_usd >= MIN_FEATURED_LIQUIDITY_USD,
             ]
             if q:
                 needle = f"%{q.strip()}%"
@@ -170,6 +167,24 @@ async def get_price_history(address: str, days: int = MAX_HISTORY_DAYS) -> list[
         PricePoint(timestamp=datetime.fromtimestamp(row.recorded_at, tz=timezone.utc), price_usd=row.price_usd)
         for row in rows
     ]
+
+
+@app.get("/ton-price")
+async def get_ton_price() -> dict:
+    """Cotação da moeda nativa TON (não é um jetton, por isso não aparece
+    em /tokens — igual ETH não aparece como 'token ERC-20' no Etherscan)."""
+    try:
+        data = await tonapi_client.get_rates(tokens="ton", currencies="usd")
+        ton_rates = data.get("rates", {}).get("TON", {})
+        return {
+            "price_usd": ton_rates.get("prices", {}).get("USD"),
+            "diff_24h": ton_rates.get("diff_24h", {}).get("USD"),
+            "diff_7d": ton_rates.get("diff_7d", {}).get("USD"),
+            "diff_30d": ton_rates.get("diff_30d", {}).get("USD"),
+        }
+    except Exception:
+        logger.exception("failed to fetch TON price from TonAPI")
+        return {"price_usd": None, "diff_24h": None, "diff_7d": None, "diff_30d": None}
 
 
 @app.get("/tokens/{address}/pools")

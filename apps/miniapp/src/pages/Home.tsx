@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { listTokens, type Token } from "../lib/api";
+import { getTonPrice, listTokens, type Token, type TonPrice } from "../lib/api";
 
 const PAGE_SIZE = 10;
 const FEATURED_COUNT = 8;
@@ -24,6 +24,15 @@ export function Home() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tonPrice, setTonPrice] = useState<TonPrice | null>(null);
+
+  useEffect(() => {
+    // TON é a moeda nativa da rede, não um jetton — por isso não aparece
+    // na tabela de tokens e vem de um endpoint à parte.
+    getTonPrice()
+      .then(setTonPrice)
+      .catch(() => setTonPrice(null));
+  }, []);
 
   // Debounce: só dispara a busca no backend depois que o usuário para de
   // digitar, e volta pra página 0 a cada nova busca.
@@ -66,6 +75,20 @@ export function Home() {
           <p className="pt-subtitle">Memecoins e jettons na rede TON</p>
         </div>
       </header>
+
+      {tonPrice?.price_usd != null && (
+        <div className="pt-card pt-ton-banner">
+          <div>
+            <div className="pt-stat-label">TON</div>
+            <div className="pt-stat-value">${formatPrice(tonPrice.price_usd)}</div>
+          </div>
+          {tonPrice.diff_24h && (
+            <span className={tonPrice.diff_24h.startsWith("-") ? "pt-negative-text" : "pt-positive-text"}>
+              {tonPrice.diff_24h.startsWith("-") ? "▼" : "▲"} {tonPrice.diff_24h.replace(/^[+-]/, "")} (24h)
+            </span>
+          )}
+        </div>
+      )}
 
       <input
         type="search"

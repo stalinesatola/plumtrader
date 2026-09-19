@@ -42,6 +42,15 @@ class TonApiClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_rates(self, tokens: str = "ton", currencies: str = "usd") -> dict:
+        """Cotação da moeda nativa TON (não é um jetton, então não aparece
+        em /v2/jettons). Resposta real da TonAPI:
+        {"rates": {"TON": {"prices": {"USD": 2.12}, "diff_24h": {"USD": "+0.85%"}, ...}}}
+        """
+        resp = await self._client.get("/v2/rates", params={"tokens": tokens, "currencies": currencies})
+        resp.raise_for_status()
+        return resp.json()
+
     async def aclose(self) -> None:
         await self._client.aclose()
 

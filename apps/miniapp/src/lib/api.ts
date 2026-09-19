@@ -20,6 +20,13 @@ export interface PricePoint {
   price_usd: number;
 }
 
+export interface TonPrice {
+  price_usd: number | null;
+  diff_24h: string | null;
+  diff_7d: string | null;
+  diff_30d: string | null;
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   const resp = await fetch(`${API_BASE_URL}${path}`);
   if (!resp.ok) {
@@ -39,4 +46,8 @@ export function getToken(address: string): Promise<Token> {
 
 export function getPriceHistory(address: string, days = 30): Promise<PricePoint[]> {
   return getJSON<PricePoint[]>(`/api/tokens/${address}/price-history?days=${days}`);
+}
+
+export function getTonPrice(): Promise<TonPrice> {
+  return getJSON<TonPrice>("/api/ton-price");
 }

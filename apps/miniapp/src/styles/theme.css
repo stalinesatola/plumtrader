@@ -230,6 +230,26 @@ a:hover {
   padding: 10px 12px;
 }
 
+/* Banner de preço do TON (moeda nativa, não é um jetton) */
+.pt-ton-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.pt-positive-text {
+  color: var(--pt-positive);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pt-negative-text {
+  color: var(--pt-negative);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* Busca */
 .pt-search {
   width: 100%;

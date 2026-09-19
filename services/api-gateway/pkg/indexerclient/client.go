@@ -76,6 +76,21 @@ type PricePoint struct {
 	PriceUSD  float64 `json:"price_usd"`
 }
 
+func (c *Client) GetTonPrice() (*TonPrice, error) {
+	var price TonPrice
+	if err := c.get("/ton-price", &price); err != nil {
+		return nil, err
+	}
+	return &price, nil
+}
+
+type TonPrice struct {
+	PriceUSD *float64 `json:"price_usd"`
+	Diff24h  *string  `json:"diff_24h"`
+	Diff7d   *string  `json:"diff_7d"`
+	Diff30d  *string  `json:"diff_30d"`
+}
+
 type Token struct {
 	Address      string   `json:"address"`
 	Symbol       string   `json:"symbol"`

@@ -8,6 +8,17 @@ PlumTrader nunca guarda chaves privadas.
 
 Veja a arquitetura completa em [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## Link de teste (preview)
+
+Mini App em deploy de teste (só o front-end, sem o api-gateway/indexer
+publicados ainda, então a listagem de tokens fica vazia por enquanto):
+👉 https://plumtrader-app.vercel.app
+
+Para testar dentro do Telegram de verdade, abra esse link no navegador do
+celular a partir de um botão `web_app` de um bot (veja "Configurando no
+Telegram" abaixo) — fora do Telegram, o SDK do WebApp roda em modo de
+compatibilidade e a tela de conexão TonConnect funciona normalmente.
+
 ## Estrutura
 
 ```

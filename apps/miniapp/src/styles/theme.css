@@ -1,0 +1,237 @@
+/*
+  Identidade visual própria do PlumTrader: tema escuro + azul oficial do
+  ecossistema TON (#0098EA — a mesma cor usada pelo TonConnect e pela
+  Tonkeeper), com layout denso típico de block explorers. Não copia
+  ativos visuais/marca de nenhum produto de terceiros.
+*/
+
+:root {
+  --pt-bg: #0e1116;
+  --pt-surface: #161b22;
+  --pt-surface-hover: #1c2229;
+  --pt-border: #262c36;
+  --pt-text: #e6edf3;
+  --pt-text-muted: #8b949e;
+  --pt-accent: #0098ea;
+  --pt-accent-hover: #33aef0;
+  --pt-positive: #3fb950;
+  --pt-negative: #f85149;
+  --pt-radius: 12px;
+  --pt-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--pt-bg);
+  color: var(--pt-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--pt-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--pt-accent-hover);
+}
+
+.pt-app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  min-height: 100%;
+}
+
+.pt-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.pt-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--pt-accent), #6f4cff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.pt-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.pt-subtitle {
+  color: var(--pt-text-muted);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.pt-card {
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-border);
+  border-radius: var(--pt-radius);
+  padding: 14px 16px;
+}
+
+.pt-token-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pt-token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-border);
+  border-radius: var(--pt-radius);
+  padding: 12px 14px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.pt-token-row:hover {
+  background: var(--pt-surface-hover);
+  border-color: var(--pt-accent);
+}
+
+.pt-token-identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pt-token-symbol {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.pt-token-name {
+  color: var(--pt-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pt-token-price {
+  font-family: var(--pt-font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pt-address {
+  font-family: var(--pt-font-mono);
+  font-size: 12px;
+  color: var(--pt-text-muted);
+  word-break: break-all;
+}
+
+.pt-empty-state {
+  color: var(--pt-text-muted);
+  text-align: center;
+  padding: 32px 16px;
+  border: 1px dashed var(--pt-border);
+  border-radius: var(--pt-radius);
+}
+
+.pt-alert {
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: var(--pt-negative);
+  border-radius: var(--pt-radius);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.pt-button {
+  appearance: none;
+  border: none;
+  border-radius: var(--pt-radius);
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  background: var(--pt-accent);
+  color: #fff;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.pt-button:hover:not(:disabled) {
+  background: var(--pt-accent-hover);
+}
+
+.pt-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pt-section {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pt-back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--pt-text-muted);
+}
+
+.pt-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.pt-stat {
+  background: var(--pt-bg);
+  border: 1px solid var(--pt-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.pt-stat-label {
+  color: var(--pt-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pt-stat-value {
+  font-family: var(--pt-font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 2px;
+}

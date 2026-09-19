@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import { App } from "./App";
 import { initTelegram } from "./lib/telegram";
+import "./styles/theme.css";
 
 initTelegram();
 

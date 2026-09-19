@@ -1,9 +1,14 @@
 import { TonConnectButton, useTonConnectUI } from "@tonconnect/ui-react";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { getToken, type Token as TokenData } from "../lib/api";
 import { buildSwapTransaction } from "../lib/tonconnect";
+
+function truncateAddress(address: string): string {
+  if (address.length <= 14) return address;
+  return `${address.slice(0, 6)}…${address.slice(-6)}`;
+}
 
 export function Token() {
   const { address = "" } = useParams();
@@ -32,25 +37,56 @@ export function Token() {
     await tonConnectUI.sendTransaction(tx);
   }
 
-  if (error) return <p role="alert">Erro: {error}</p>;
-  if (!token) return <p>Carregando...</p>;
-
   return (
-    <main>
-      <h1>
-        {token.symbol} — {token.name}
-      </h1>
-      {token.price_usd != null && <p>Preço: ${token.price_usd.toFixed(6)}</p>}
-      <p>
-        <a href={token.tonscan_url} target="_blank" rel="noreferrer">
-          Ver no Tonscan
-        </a>
-      </p>
+    <div className="pt-app">
+      <Link to="/" className="pt-back-link">
+        ← Voltar
+      </Link>
 
-      <TonConnectButton />
-      <button onClick={handleSwap} disabled={!tonConnectUI.connected}>
-        Comprar via wallet conectada
-      </button>
-    </main>
+      {error && <div className="pt-alert">Erro: {error}</div>}
+      {!token && !error && <div className="pt-empty-state">Carregando…</div>}
+
+      {token && (
+        <>
+          <header className="pt-header">
+            <div className="pt-logo">{token.symbol.slice(0, 1)}</div>
+            <div>
+              <h1 className="pt-title">{token.symbol}</h1>
+              <p className="pt-subtitle">{token.name}</p>
+            </div>
+          </header>
+
+          <div className="pt-card">
+            <span className="pt-address">{truncateAddress(token.address)}</span>
+
+            <div className="pt-stat-grid">
+              <div className="pt-stat">
+                <div className="pt-stat-label">Preço</div>
+                <div className="pt-stat-value">
+                  {token.price_usd != null ? `$${token.price_usd.toFixed(6)}` : "—"}
+                </div>
+              </div>
+              <div className="pt-stat">
+                <div className="pt-stat-label">Liquidez</div>
+                <div className="pt-stat-value">
+                  {token.liquidity_usd != null ? `$${token.liquidity_usd.toLocaleString()}` : "—"}
+                </div>
+              </div>
+            </div>
+
+            <a href={token.tonscan_url} target="_blank" rel="noreferrer">
+              Ver no Tonscan ↗
+            </a>
+          </div>
+
+          <section className="pt-section">
+            <TonConnectButton />
+            <button className="pt-button" onClick={handleSwap} disabled={!tonConnectUI.connected}>
+              Comprar via wallet conectada
+            </button>
+          </section>
+        </>
+      )}
+    </div>
   );
 }

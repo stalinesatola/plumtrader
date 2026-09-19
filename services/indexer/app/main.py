@@ -3,15 +3,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.clients.dex import dedust_client, stonfi_client
 from app.clients.tonapi import tonapi_client
 from app.clients.toncenter import toncenter_client
 from app.config import settings
 from app.db import TokenRow, async_session, init_db
-from app.models import Token
+from app.models import Token, TokenPage
 from app.tasks.poller import start_scheduler
+
+MAX_PAGE_LIMIT = 100
 
 logger = logging.getLogger(__name__)
 
@@ -53,16 +55,28 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/tokens", response_model=list[Token])
-async def list_tokens() -> list[Token]:
+@app.get("/tokens", response_model=TokenPage)
+async def list_tokens(limit: int = 20, offset: int = 0) -> TokenPage:
+    limit = max(1, min(limit, MAX_PAGE_LIMIT))
+    offset = max(0, offset)
+
     try:
         async with async_session() as session:
-            query = select(TokenRow).order_by(TokenRow.liquidity_usd.desc().nullslast())
+            total = (
+                await session.execute(select(func.count()).select_from(TokenRow))
+            ).scalar_one()
+            query = (
+                select(TokenRow)
+                .order_by(TokenRow.liquidity_usd.desc().nullslast())
+                .limit(limit)
+                .offset(offset)
+            )
             rows = (await session.execute(query)).scalars().all()
     except Exception:
         logger.exception("database unavailable, returning empty token list")
-        return []
-    return [
+        return TokenPage(items=[], total=0)
+
+    items = [
         Token(
             address=row.address,
             symbol=row.symbol,
@@ -73,6 +87,7 @@ async def list_tokens() -> list[Token]:
         )
         for row in rows
     ]
+    return TokenPage(items=items, total=total)
 
 
 @app.get("/tokens/{address}", response_model=Token)

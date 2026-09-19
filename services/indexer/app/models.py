@@ -16,6 +16,11 @@ class Token(BaseModel):
     tonscan_url: str
 
 
+class TokenPage(BaseModel):
+    items: list[Token]
+    total: int
+
+
 class PricePoint(BaseModel):
     timestamp: datetime
     price_usd: float

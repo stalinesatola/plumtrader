@@ -10,6 +10,11 @@ export interface Token {
   tonscan_url: string;
 }
 
+export interface TokenPage {
+  items: Token[];
+  total: number;
+}
+
 async function getJSON<T>(path: string): Promise<T> {
   const resp = await fetch(`${API_BASE_URL}${path}`);
   if (!resp.ok) {
@@ -18,8 +23,8 @@ async function getJSON<T>(path: string): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
-export function listTokens(): Promise<Token[]> {
-  return getJSON<Token[]>("/api/tokens/");
+export function listTokens(limit: number, offset: number): Promise<TokenPage> {
+  return getJSON<TokenPage>(`/api/tokens/?limit=${limit}&offset=${offset}`);
 }
 
 export function getToken(address: string): Promise<Token> {

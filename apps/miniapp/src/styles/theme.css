@@ -222,6 +222,168 @@ a:hover {
   padding: 10px 12px;
 }
 
+/* Tabs */
+.pt-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.pt-tab {
+  appearance: none;
+  border: 1px solid var(--pt-border);
+  background: var(--pt-surface);
+  color: var(--pt-text-muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pt-tab[data-active="true"] {
+  border-color: var(--pt-accent);
+  color: #fff;
+  background: var(--pt-accent);
+}
+
+/* Cards de destaque */
+.pt-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.pt-featured-card {
+  background: var(--pt-surface);
+  border: 1px solid var(--pt-border);
+  border-radius: var(--pt-radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pt-featured-card:hover {
+  border-color: var(--pt-accent);
+  background: var(--pt-surface-hover);
+}
+
+.pt-featured-rank {
+  font-size: 11px;
+  color: var(--pt-text-muted);
+  font-family: var(--pt-font-mono);
+}
+
+.pt-featured-symbol {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.pt-featured-price {
+  font-family: var(--pt-font-mono);
+  font-size: 13px;
+}
+
+.pt-featured-liquidity {
+  font-size: 11px;
+  color: var(--pt-text-muted);
+}
+
+/* Tabela de tokens */
+.pt-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--pt-border);
+  border-radius: var(--pt-radius);
+}
+
+.pt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.pt-table th {
+  text-align: left;
+  color: var(--pt-text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pt-border);
+  white-space: nowrap;
+}
+
+.pt-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pt-border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.pt-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pt-table tbody tr:hover {
+  background: var(--pt-surface-hover);
+}
+
+.pt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pt-table-rank {
+  color: var(--pt-text-muted);
+  font-family: var(--pt-font-mono);
+}
+
+.pt-table-name-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  white-space: normal;
+}
+
+.pt-table-price,
+.pt-table-liquidity {
+  font-family: var(--pt-font-mono);
+  text-align: right;
+}
+
+.pt-muted {
+  color: var(--pt-text-muted);
+}
+
+/* Paginação */
+.pt-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.pt-pagination-info {
+  font-size: 12px;
+  color: var(--pt-text-muted);
+}
+
+.pt-pagination-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.pt-pagination-controls .pt-button {
+  width: auto;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
 .pt-stat-label {
   color: var(--pt-text-muted);
   font-size: 11px;

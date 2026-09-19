@@ -90,12 +90,34 @@ def _pool_liquidity_usd(pool: dict) -> float:
         return 0.0
 
 
+def _derive_price_usd(pool: dict, is_token0: bool, decimals: int) -> float | None:
+    """Deriva o preço do token em USD a partir das reservas do pool.
+
+    Pools constant-product (padrão STON.fi/Uniswap-V2) mantêm os dois
+    lados com valor em USD aproximadamente igual, então
+    preço ≈ (liquidez_total_usd / 2) / reserva_do_token. Usa só dados reais
+    (reservas on-chain + liquidez total do pool), sem nenhum número
+    inventado — é uma aproximação, não uma cotação exata de mercado.
+    """
+    try:
+        total_usd = float(pool.get("lp_total_supply_usd") or 0)
+        if total_usd <= 0:
+            return None
+        reserve_raw = pool.get("reserve0") if is_token0 else pool.get("reserve1")
+        reserve = float(reserve_raw) / (10**decimals)
+        if reserve <= 0:
+            return None
+        return (total_usd / 2) / reserve
+    except (TypeError, ValueError):
+        return None
+
+
 async def refresh_featured_tokens() -> None:
     """Popula/atualiza os tokens de maior liquidez nos pools do STON.fi.
 
-    Usa dados reais de mercado (liquidez em USD) em vez de uma lista
-    escolhida à mão, e reaproveita o mesmo endereço de contrato que o
-    STON.fi já expõe — nunca inventamos endereço de jetton aqui.
+    Usa dados reais de mercado (liquidez e reservas em USD) em vez de uma
+    lista escolhida à mão, e reaproveita o mesmo endereço de contrato que
+    o STON.fi já expõe — nunca inventamos endereço de jetton aqui.
     """
     try:
         data = await stonfi_client.get_pools()
@@ -106,17 +128,23 @@ async def refresh_featured_tokens() -> None:
     active_pools = [p for p in data.get("pool_list", []) if not p.get("deprecated")]
     top_pools = sorted(active_pools, key=_pool_liquidity_usd, reverse=True)[:FEATURED_POOL_LIMIT]
 
-    # endereço -> maior liquidez em que ele aparece entre os pools top
-    candidates: dict[str, float] = {}
+    # endereço -> (liquidez, pool onde apareceu com mais liquidez, é token0?)
+    best: dict[str, tuple[float, dict, bool]] = {}
     for pool in top_pools:
         liquidity = _pool_liquidity_usd(pool)
-        for address in (pool.get("token0_address"), pool.get("token1_address")):
-            if address and liquidity > candidates.get(address, 0):
-                candidates[address] = liquidity
+        for is_token0, address in (
+            (True, pool.get("token0_address")),
+            (False, pool.get("token1_address")),
+        ):
+            if not address:
+                continue
+            current = best.get(address)
+            if current is None or liquidity > current[0]:
+                best[address] = (liquidity, pool, is_token0)
 
     async with async_session() as session:
         total = 0
-        for address, liquidity_usd in candidates.items():
+        for address, (liquidity_usd, pool, is_token0) in best.items():
             try:
                 info = await tonapi_client.get_jetton(address)
             except Exception:
@@ -124,13 +152,19 @@ async def refresh_featured_tokens() -> None:
                 continue
 
             metadata = info.get("metadata", {})
+            try:
+                decimals = int(metadata.get("decimals") or 9)
+            except (TypeError, ValueError):
+                decimals = 9
+            price_usd = _derive_price_usd(pool, is_token0, decimals)
+
             stmt = (
                 insert(TokenRow)
                 .values(
                     address=address,
                     symbol=metadata.get("symbol", "?"),
                     name=metadata.get("name", "Unknown"),
-                    price_usd=None,
+                    price_usd=price_usd,
                     liquidity_usd=liquidity_usd,
                     updated_at=int(time.time()),
                 )
@@ -139,6 +173,7 @@ async def refresh_featured_tokens() -> None:
                     set_={
                         "symbol": metadata.get("symbol", "?"),
                         "name": metadata.get("name", "Unknown"),
+                        "price_usd": price_usd,
                         "liquidity_usd": liquidity_usd,
                         "updated_at": int(time.time()),
                     },

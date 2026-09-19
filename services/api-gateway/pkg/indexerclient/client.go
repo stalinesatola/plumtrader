@@ -36,12 +36,18 @@ func (c *Client) get(path string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-func (c *Client) ListTokens() ([]Token, error) {
-	var tokens []Token
-	if err := c.get("/tokens", &tokens); err != nil {
+func (c *Client) ListTokens(limit, offset int) (*TokenPage, error) {
+	var page TokenPage
+	path := fmt.Sprintf("/tokens?limit=%d&offset=%d", limit, offset)
+	if err := c.get(path, &page); err != nil {
 		return nil, err
 	}
-	return tokens, nil
+	return &page, nil
+}
+
+type TokenPage struct {
+	Items []Token `json:"items"`
+	Total int     `json:"total"`
 }
 
 func (c *Client) GetToken(address string) (*Token, error) {

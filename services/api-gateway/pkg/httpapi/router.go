@@ -5,6 +5,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -13,6 +14,20 @@ import (
 	"github.com/stalinesatola/plumtrader/services/api-gateway/pkg/indexerclient"
 	"github.com/stalinesatola/plumtrader/services/api-gateway/pkg/tonscan"
 )
+
+const defaultPageLimit = 20
+
+func parseIntParam(r *http.Request, name string, fallback int) int {
+	raw := r.URL.Query().Get(name)
+	if raw == "" {
+		return fallback
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v < 0 {
+		return fallback
+	}
+	return v
+}
 
 func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 	r := chi.NewRouter()
@@ -31,12 +46,15 @@ func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 
 	r.Route("/api/tokens", func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			tokens, err := indexerClient.ListTokens()
+			limit := parseIntParam(r, "limit", defaultPageLimit)
+			offset := parseIntParam(r, "offset", 0)
+
+			page, err := indexerClient.ListTokens(limit, offset)
 			if err != nil {
 				writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 				return
 			}
-			writeJSON(w, http.StatusOK, tokens)
+			writeJSON(w, http.StatusOK, page)
 		})
 
 		r.Get("/{address}", func(w http.ResponseWriter, r *http.Request) {

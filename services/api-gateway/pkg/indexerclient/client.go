@@ -19,7 +19,10 @@ type Client struct {
 func NewClient(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
-		http:    &http.Client{Timeout: 10 * time.Second},
+		// O indexer roda no plano free do Render, que "dorme" depois de
+		// ociosidade e leva ~30-50s pra acordar (cold start). Um timeout
+		// curto faria o gateway desistir e devolver 502 antes disso.
+		http: &http.Client{Timeout: 60 * time.Second},
 	}
 }
 

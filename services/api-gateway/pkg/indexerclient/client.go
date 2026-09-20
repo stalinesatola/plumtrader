@@ -101,10 +101,13 @@ type Token struct {
 	Address      string   `json:"address"`
 	Symbol       string   `json:"symbol"`
 	Name         string   `json:"name"`
+	Decimals     *int     `json:"decimals"`
 	Image        *string  `json:"image"`
 	Description  *string  `json:"description"`
 	Mintable     *bool    `json:"mintable"`
 	Verification *string  `json:"verification"`
+	AdminAddress *string  `json:"admin_address"`
+	TotalSupply  *float64 `json:"total_supply"`
 	PriceUSD     *float64 `json:"price_usd"`
 	PriceTON     *float64 `json:"price_ton"`
 	LiquidityUSD *float64 `json:"liquidity_usd"`

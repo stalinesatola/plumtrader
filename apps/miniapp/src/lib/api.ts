@@ -4,10 +4,13 @@ export interface Token {
   address: string;
   symbol: string;
   name: string;
+  decimals?: number | null;
   image?: string | null;
   description?: string | null;
   mintable?: boolean | null;
   verification?: string | null;
+  admin_address?: string | null;
+  total_supply?: number | null;
   price_usd?: number | null;
   liquidity_usd?: number | null;
   holders_count?: number | null;

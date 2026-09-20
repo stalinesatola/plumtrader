@@ -1,49 +1,47 @@
-import { TonConnectButton, useTonConnectUI } from "@tonconnect/ui-react";
+import { TonConnectButton } from "@tonconnect/ui-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { PriceSparkline } from "../components/PriceSparkline";
 import { getPriceHistory, getToken, type PricePoint, type Token as TokenData } from "../lib/api";
-import { buildSwapTransaction } from "../lib/tonconnect";
 
 function truncateAddress(address: string): string {
   if (address.length <= 14) return address;
   return `${address.slice(0, 6)}…${address.slice(-6)}`;
 }
 
+// STON.fi é o mesmo DEX de onde já lemos pools/liquidez no backend — aqui só
+// montamos o link público do swap deles (ft = token de origem, tt = destino),
+// sem tentar montar a transação de swap nós mesmos (protocolo de roteamento
+// do DEX é complexo demais pra arriscar um payload incorreto).
+const STONFI_SWAP_URL = "https://app.ston.fi/swap";
+
+const HISTORY_PERIODS = [
+  { label: "1D", days: 1 },
+  { label: "7D", days: 7 },
+  { label: "30D", days: 30 },
+] as const;
+
 export function Token() {
   const { address = "" } = useParams();
   const [token, setToken] = useState<TokenData | null>(null);
   const [history, setHistory] = useState<PricePoint[]>([]);
+  const [periodDays, setPeriodDays] = useState<number>(30);
   const [error, setError] = useState<string | null>(null);
-  const [tonConnectUI] = useTonConnectUI();
 
   useEffect(() => {
     getToken(address)
       .then(setToken)
       .catch((err: Error) => setError(err.message));
-
-    // Histórico é "melhor esforço": se falhar, o resto da tela do token
-    // continua funcionando normalmente, só sem o gráfico.
-    getPriceHistory(address, 30)
-      .then(setHistory)
-      .catch(() => setHistory([]));
   }, [address]);
 
-  async function handleSwap() {
-    if (!token) return;
-
-    // O PlumTrader nunca assina por conta própria: monta a transação e pede
-    // para a wallet conectada (via TonConnect) assinar e enviar.
-    const tx = buildSwapTransaction({
-      fromAddress: tonConnectUI.account?.address ?? "",
-      toJetton: token.address,
-      amountNano: "50000000", // 0.05 GRAM (nanoGRAM) de exemplo
-      validUntil: Math.floor(Date.now() / 1000) + 300,
-    });
-
-    await tonConnectUI.sendTransaction(tx);
-  }
+  useEffect(() => {
+    // Histórico é "melhor esforço": se falhar, o resto da tela do token
+    // continua funcionando normalmente, só sem o gráfico.
+    getPriceHistory(address, periodDays)
+      .then(setHistory)
+      .catch(() => setHistory([]));
+  }, [address, periodDays]);
 
   return (
     <div className="pt-app">
@@ -68,6 +66,17 @@ export function Token() {
             </div>
           </header>
 
+          <div className="pt-price-row">
+            <span className="pt-price-big">
+              {token.price_usd != null ? `$${token.price_usd.toFixed(6)}` : "—"}
+            </span>
+            {token.change_24h != null && (
+              <span className={token.change_24h >= 0 ? "pt-positive-text" : "pt-negative-text"}>
+                {token.change_24h >= 0 ? "▲" : "▼"} {Math.abs(token.change_24h).toFixed(2)}%
+              </span>
+            )}
+          </div>
+
           {(token.verification || token.mintable != null) && (
             <div className="pt-badge-row">
               {token.verification === "whitelist" && (
@@ -85,52 +94,90 @@ export function Token() {
           {token.description && <p className="pt-token-description">{token.description}</p>}
 
           <div className="pt-card">
-            <span className="pt-address">{truncateAddress(token.address)}</span>
+            <div className="pt-info-row">
+              <span className="pt-stat-label">Cap. de Mercado</span>
+              <span>{token.market_cap_usd != null ? `$${token.market_cap_usd.toLocaleString()}` : "—"}</span>
+            </div>
+            <div className="pt-info-row">
+              <span className="pt-stat-label">Liquidez</span>
+              <span>{token.liquidity_usd != null ? `$${token.liquidity_usd.toLocaleString()}` : "—"}</span>
+            </div>
+            <div className="pt-info-row">
+              <span className="pt-stat-label">Holders</span>
+              <span>{token.holders_count != null ? token.holders_count.toLocaleString() : "—"}</span>
+            </div>
+            <div className="pt-info-row">
+              <span className="pt-stat-label">Total Supply</span>
+              <span>
+                {token.total_supply != null
+                  ? `${token.total_supply.toLocaleString()} ${token.symbol}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="pt-info-row">
+              <span className="pt-stat-label">Mutável</span>
+              <span>{token.mintable == null ? "—" : token.mintable ? "Sim" : "Não"}</span>
+            </div>
+          </div>
 
-            <div className="pt-stat-grid">
-              <div className="pt-stat">
-                <div className="pt-stat-label">Preço</div>
-                <div className="pt-stat-value">
-                  {token.price_usd != null ? `$${token.price_usd.toFixed(6)}` : "—"}
-                </div>
-              </div>
-              <div className="pt-stat">
-                <div className="pt-stat-label">Liquidez</div>
-                <div className="pt-stat-value">
-                  {token.liquidity_usd != null ? `$${token.liquidity_usd.toLocaleString()}` : "—"}
-                </div>
-              </div>
-              <div className="pt-stat">
-                <div className="pt-stat-label">Cap. de Mercado</div>
-                <div className="pt-stat-value">
-                  {token.market_cap_usd != null ? `$${token.market_cap_usd.toLocaleString()}` : "—"}
-                </div>
-              </div>
-              <div className="pt-stat">
-                <div className="pt-stat-label">Holders</div>
-                <div className="pt-stat-value">
-                  {token.holders_count != null ? token.holders_count.toLocaleString() : "—"}
-                </div>
+          <div className="pt-card" style={{ marginTop: 12 }}>
+            <div className="pt-chart-header">
+              <span className="pt-stat-label">Histórico de preço</span>
+              <div className="pt-period-tabs">
+                {HISTORY_PERIODS.map((period) => (
+                  <button
+                    key={period.days}
+                    className={`pt-period-tab ${periodDays === period.days ? "pt-period-tab-active" : ""}`}
+                    onClick={() => setPeriodDays(period.days)}
+                  >
+                    {period.label}
+                  </button>
+                ))}
               </div>
             </div>
+            <PriceSparkline points={history} />
+          </div>
 
+          <div className="pt-card" style={{ marginTop: 12 }}>
+            <div className="pt-info-row">
+              <span className="pt-stat-label">Endereço</span>
+              <span className="pt-address">{truncateAddress(token.address)}</span>
+            </div>
+            {token.admin_address && (
+              <div className="pt-info-row">
+                <span className="pt-stat-label">Owner</span>
+                <span className="pt-address">{truncateAddress(token.admin_address)}</span>
+              </div>
+            )}
             <a href={token.tonscan_url} target="_blank" rel="noreferrer">
               Ver no Tonscan ↗
             </a>
           </div>
 
-          <div className="pt-card" style={{ marginTop: 12 }}>
-            <div className="pt-stat-label" style={{ marginBottom: 8 }}>
-              Últimos 30 dias
-            </div>
-            <PriceSparkline points={history} />
-          </div>
-
           <section className="pt-section">
             <TonConnectButton />
-            <button className="pt-button" onClick={handleSwap} disabled={!tonConnectUI.connected}>
-              Comprar via wallet conectada
-            </button>
+            <div className="pt-buy-sell-row">
+              <a
+                className="pt-button pt-buy-button"
+                href={`${STONFI_SWAP_URL}?tt=${encodeURIComponent(token.address)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Comprar
+              </a>
+              <a
+                className="pt-button pt-sell-button"
+                href={`${STONFI_SWAP_URL}?ft=${encodeURIComponent(token.address)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Vender
+              </a>
+            </div>
+            <p className="pt-token-description">
+              Abre o swap no STON.fi (mesma fonte de liquidez usada aqui) — você assina direto na sua
+              wallet conectada lá, o PlumTrader nunca guarda suas chaves.
+            </p>
           </section>
         </>
       )}

@@ -216,6 +216,93 @@ a:hover {
   cursor: not-allowed;
 }
 
+a.pt-button {
+  display: block;
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+}
+
+.pt-buy-sell-row {
+  display: flex;
+  gap: 10px;
+}
+
+.pt-buy-sell-row .pt-button {
+  flex: 1;
+}
+
+.pt-buy-button {
+  background: var(--pt-positive);
+}
+
+.pt-buy-button:hover {
+  filter: brightness(1.1);
+}
+
+.pt-sell-button {
+  background: var(--pt-negative);
+}
+
+.pt-sell-button:hover {
+  filter: brightness(1.1);
+}
+
+.pt-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+
+.pt-price-big {
+  font-family: var(--pt-font-mono);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.pt-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--pt-border);
+}
+
+.pt-info-row:last-of-type {
+  border-bottom: none;
+}
+
+.pt-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pt-period-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.pt-period-tab {
+  appearance: none;
+  border: 1px solid var(--pt-border);
+  background: transparent;
+  color: var(--pt-text-muted);
+  border-radius: var(--pt-radius);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pt-period-tab-active {
+  background: var(--pt-accent);
+  border-color: var(--pt-accent);
+  color: #fff;
+}
+
 .pt-section {
   margin-top: 20px;
   display: flex;

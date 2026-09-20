@@ -12,6 +12,8 @@ class Token(BaseModel):
     description: str | None = None
     mintable: bool | None = None
     verification: str | None = None
+    admin_address: str | None = None
+    total_supply: float | None = None
     price_usd: float | None = None
     price_ton: float | None = None
     liquidity_usd: float | None = None

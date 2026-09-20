@@ -185,21 +185,41 @@ async def get_token(address: str) -> Token:
     except Exception:
         logger.exception("database unavailable, skipping cached price/liquidity")
 
-    # holders_count/mintable/verification vêm frescos da própria chamada
-    # acima (nível raiz do JettonInfo, não em metadata) — não dependem do
-    # cache, diferente de preço/liquidez.
+    # holders_count/mintable/verification/admin/total_supply vêm frescos da
+    # própria chamada acima (nível raiz do JettonInfo, não em metadata) —
+    # não dependem do cache, diferente de preço/liquidez.
     holders_count = data.get("holders_count")
     if not isinstance(holders_count, int):
         holders_count = None
+
+    try:
+        decimals = int(metadata.get("decimals") or 9)
+    except (TypeError, ValueError):
+        decimals = 9
+
+    total_supply = None
+    total_supply_raw = data.get("total_supply")
+    if total_supply_raw is not None:
+        try:
+            total_supply = float(total_supply_raw) / (10**decimals)
+        except (TypeError, ValueError):
+            total_supply = None
+
+    # admin é o endereço do contrato que ainda pode mintar/administrar o
+    # jetton (TEP-74) — equivalente ao "Owner" mostrado pelo Tonscan.
+    admin_address = (data.get("admin") or {}).get("address")
 
     return Token(
         address=address,
         symbol=metadata.get("symbol", "?"),
         name=metadata.get("name", "Unknown"),
+        decimals=decimals,
         image=metadata.get("image"),
         description=metadata.get("description"),
         mintable=data.get("mintable"),
         verification=data.get("verification"),
+        admin_address=admin_address,
+        total_supply=total_supply,
         price_usd=price_usd,
         liquidity_usd=liquidity_usd,
         holders_count=holders_count,

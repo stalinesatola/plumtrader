@@ -1,0 +1,27 @@
+name: Keep Render services awake
+
+# O plano free do Render suspende web services depois de ~15min sem
+# requisições HTTP. Este workflow faz um ping periódico no /health do
+# indexer e do gateway pra evitar o cold start (que causa timeout/502 na
+# primeira requisição do miniapp depois de um período ocioso).
+#
+# Alternativa ao Cron Job nativo do Render, que é pago (mínimo ~$1/mês
+# por serviço) mesmo em contas com web services no plano free.
+
+on:
+  schedule:
+    # A cada 10 minutos, com folga em relação ao timeout de ~15min do
+    # Render. GitHub Actions não garante o minuto exato, então a margem
+    # importa.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping indexer
+        run: curl -fsS --max-time 60 https://plumtrader-indexer.onrender.com/health || true
+
+      - name: Ping gateway
+        run: curl -fsS --max-time 60 https://plumtrader-gateway.onrender.com/health || true

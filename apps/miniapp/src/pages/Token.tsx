@@ -57,12 +57,32 @@ export function Token() {
       {token && (
         <>
           <header className="pt-header">
-            <div className="pt-logo">{token.symbol.slice(0, 1)}</div>
+            {token.image ? (
+              <img src={token.image} alt={token.symbol} className="pt-logo-img" />
+            ) : (
+              <div className="pt-logo">{token.symbol.slice(0, 1)}</div>
+            )}
             <div>
               <h1 className="pt-title">{token.symbol}</h1>
               <p className="pt-subtitle">{token.name}</p>
             </div>
           </header>
+
+          {(token.verification || token.mintable != null) && (
+            <div className="pt-badge-row">
+              {token.verification === "whitelist" && (
+                <span className="pt-positive-text">✓ Verificado pela TonAPI</span>
+              )}
+              {token.verification === "blacklist" && (
+                <span className="pt-negative-text">⚠ Sinalizado pela TonAPI</span>
+              )}
+              {token.mintable === true && (
+                <span className="pt-negative-text">⚠ Supply mutável (admin pode criar mais)</span>
+              )}
+            </div>
+          )}
+
+          {token.description && <p className="pt-token-description">{token.description}</p>}
 
           <div className="pt-card">
             <span className="pt-address">{truncateAddress(token.address)}</span>

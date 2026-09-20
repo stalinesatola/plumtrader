@@ -5,6 +5,9 @@ export interface Token {
   symbol: string;
   name: string;
   image?: string | null;
+  description?: string | null;
+  mintable?: boolean | null;
+  verification?: string | null;
   price_usd?: number | null;
   liquidity_usd?: number | null;
   holders_count?: number | null;

@@ -102,6 +102,9 @@ type Token struct {
 	Symbol       string   `json:"symbol"`
 	Name         string   `json:"name"`
 	Image        *string  `json:"image"`
+	Description  *string  `json:"description"`
+	Mintable     *bool    `json:"mintable"`
+	Verification *string  `json:"verification"`
 	PriceUSD     *float64 `json:"price_usd"`
 	PriceTON     *float64 `json:"price_ton"`
 	LiquidityUSD *float64 `json:"liquidity_usd"`

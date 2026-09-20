@@ -169,7 +169,6 @@ async def get_token(address: str) -> Token:
     # isso, a tela do token sempre mostraria "—".
     price_usd = None
     liquidity_usd = None
-    holders_count = None
     market_cap_usd = None
     changes: dict[str, float | None] = dict.fromkeys(HORIZONS_SECONDS, None)
     try:
@@ -178,7 +177,6 @@ async def get_token(address: str) -> Token:
             if row is not None:
                 price_usd = row.price_usd
                 liquidity_usd = row.liquidity_usd
-                holders_count = row.holders_count
                 market_cap_usd = row.market_cap_usd
                 changes = {
                     field: await _price_change_pct(session, address, price_usd, horizon)
@@ -187,11 +185,21 @@ async def get_token(address: str) -> Token:
     except Exception:
         logger.exception("database unavailable, skipping cached price/liquidity")
 
+    # holders_count/mintable/verification vêm frescos da própria chamada
+    # acima (nível raiz do JettonInfo, não em metadata) — não dependem do
+    # cache, diferente de preço/liquidez.
+    holders_count = data.get("holders_count")
+    if not isinstance(holders_count, int):
+        holders_count = None
+
     return Token(
         address=address,
         symbol=metadata.get("symbol", "?"),
         name=metadata.get("name", "Unknown"),
         image=metadata.get("image"),
+        description=metadata.get("description"),
+        mintable=data.get("mintable"),
+        verification=data.get("verification"),
         price_usd=price_usd,
         liquidity_usd=liquidity_usd,
         holders_count=holders_count,

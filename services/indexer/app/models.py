@@ -9,6 +9,9 @@ class Token(BaseModel):
     name: str
     decimals: int = 9
     image: str | None = None
+    description: str | None = None
+    mintable: bool | None = None
+    verification: str | None = None
     price_usd: float | None = None
     price_ton: float | None = None
     liquidity_usd: float | None = None

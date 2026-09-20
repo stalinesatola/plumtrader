@@ -58,10 +58,44 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+SORT_COLUMNS = {
+    "liquidity": TokenRow.liquidity_usd,
+    "market_cap": TokenRow.market_cap_usd,
+}
+
+HORIZONS_SECONDS = {"change_24h": 86400, "change_7d": 7 * 86400, "change_30d": 30 * 86400}
+
+
+async def _price_change_pct(session, address: str, current_price: float | None, horizon_seconds: int) -> float | None:
+    """% de variação vs. o ponto de price_history mais próximo (e não
+    mais novo que) `now - horizon_seconds`. Retorna None sem inventar
+    nada quando ainda não há histórico velho o suficiente."""
+    if current_price is None:
+        return None
+    target = int(time.time()) - horizon_seconds
+    row = (
+        await session.execute(
+            select(PriceHistoryRow.price_usd)
+            .where(PriceHistoryRow.address == address, PriceHistoryRow.recorded_at <= target)
+            .order_by(PriceHistoryRow.recorded_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not row:
+        return None
+    old_price = row
+    if old_price == 0:
+        return None
+    return (current_price - old_price) / old_price * 100
+
+
 @app.get("/tokens", response_model=TokenPage)
-async def list_tokens(limit: int = 20, offset: int = 0, q: str | None = None) -> TokenPage:
+async def list_tokens(
+    limit: int = 20, offset: int = 0, q: str | None = None, sort: str = "liquidity"
+) -> TokenPage:
     limit = max(1, min(limit, MAX_PAGE_LIMIT))
     offset = max(0, offset)
+    sort_column = SORT_COLUMNS.get(sort, TokenRow.liquidity_usd)
 
     try:
         async with async_session() as session:
@@ -89,26 +123,35 @@ async def list_tokens(limit: int = 20, offset: int = 0, q: str | None = None) ->
             query = (
                 select(TokenRow)
                 .where(*filters)
-                .order_by(TokenRow.liquidity_usd.desc().nullslast())
+                .order_by(sort_column.desc().nullslast())
                 .limit(limit)
                 .offset(offset)
             )
             rows = (await session.execute(query)).scalars().all()
+
+            items = []
+            for row in rows:
+                changes = {
+                    field: await _price_change_pct(session, row.address, row.price_usd, horizon)
+                    for field, horizon in HORIZONS_SECONDS.items()
+                }
+                items.append(
+                    Token(
+                        address=row.address,
+                        symbol=row.symbol,
+                        name=row.name,
+                        price_usd=row.price_usd,
+                        liquidity_usd=row.liquidity_usd,
+                        holders_count=row.holders_count,
+                        market_cap_usd=row.market_cap_usd,
+                        tonscan_url=f"{settings.tonscan_base_url}/jetton/{row.address}",
+                        **changes,
+                    )
+                )
     except Exception:
         logger.exception("database unavailable, returning empty token list")
         return TokenPage(items=[], total=0)
 
-    items = [
-        Token(
-            address=row.address,
-            symbol=row.symbol,
-            name=row.name,
-            price_usd=row.price_usd,
-            liquidity_usd=row.liquidity_usd,
-            tonscan_url=f"{settings.tonscan_base_url}/jetton/{row.address}",
-        )
-        for row in rows
-    ]
     return TokenPage(items=items, total=total)
 
 
@@ -126,12 +169,21 @@ async def get_token(address: str) -> Token:
     # isso, a tela do token sempre mostraria "—".
     price_usd = None
     liquidity_usd = None
+    holders_count = None
+    market_cap_usd = None
+    changes: dict[str, float | None] = dict.fromkeys(HORIZONS_SECONDS, None)
     try:
         async with async_session() as session:
             row = await session.get(TokenRow, address)
             if row is not None:
                 price_usd = row.price_usd
                 liquidity_usd = row.liquidity_usd
+                holders_count = row.holders_count
+                market_cap_usd = row.market_cap_usd
+                changes = {
+                    field: await _price_change_pct(session, address, price_usd, horizon)
+                    for field, horizon in HORIZONS_SECONDS.items()
+                }
     except Exception:
         logger.exception("database unavailable, skipping cached price/liquidity")
 
@@ -142,7 +194,10 @@ async def get_token(address: str) -> Token:
         image=metadata.get("image"),
         price_usd=price_usd,
         liquidity_usd=liquidity_usd,
+        holders_count=holders_count,
+        market_cap_usd=market_cap_usd,
         tonscan_url=f"{settings.tonscan_base_url}/jetton/{address}",
+        **changes,
     )
 
 

@@ -250,6 +250,31 @@ a:hover {
   font-weight: 600;
 }
 
+/* Tabs (ordenação: Liquidez / Capitalização) */
+.pt-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.pt-tab {
+  appearance: none;
+  border: 1px solid var(--pt-border);
+  background: var(--pt-surface);
+  color: var(--pt-text-muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pt-tab[data-active="true"] {
+  border-color: var(--pt-accent);
+  color: #fff;
+  background: var(--pt-accent);
+}
+
 /* Busca */
 .pt-search {
   width: 100%;

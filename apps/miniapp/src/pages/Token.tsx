@@ -80,6 +80,18 @@ export function Token() {
                   {token.liquidity_usd != null ? `$${token.liquidity_usd.toLocaleString()}` : "—"}
                 </div>
               </div>
+              <div className="pt-stat">
+                <div className="pt-stat-label">Cap. de Mercado</div>
+                <div className="pt-stat-value">
+                  {token.market_cap_usd != null ? `$${token.market_cap_usd.toLocaleString()}` : "—"}
+                </div>
+              </div>
+              <div className="pt-stat">
+                <div className="pt-stat-label">Holders</div>
+                <div className="pt-stat-value">
+                  {token.holders_count != null ? token.holders_count.toLocaleString() : "—"}
+                </div>
+              </div>
             </div>
 
             <a href={token.tonscan_url} target="_blank" rel="noreferrer">

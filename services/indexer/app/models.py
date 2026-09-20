@@ -13,6 +13,10 @@ class Token(BaseModel):
     price_ton: float | None = None
     liquidity_usd: float | None = None
     holders_count: int | None = None
+    market_cap_usd: float | None = None
+    change_24h: float | None = None
+    change_7d: float | None = None
+    change_30d: float | None = None
     tonscan_url: str
 
 

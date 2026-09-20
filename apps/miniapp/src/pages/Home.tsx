@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { getTonPrice, listTokens, type Token, type TonPrice } from "../lib/api";
+import { getTonPrice, listTokens, type Token, type TokenSort, type TonPrice } from "../lib/api";
 
 const PAGE_SIZE = 10;
 const FEATURED_COUNT = 8;
@@ -15,6 +15,16 @@ function formatLiquidity(value: number): string {
   return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+function ChangeCell({ pct }: { pct: number | null | undefined }) {
+  if (pct == null) return <span className="pt-muted">—</span>;
+  const isUp = pct >= 0;
+  return (
+    <span className={isUp ? "pt-positive-text" : "pt-negative-text"}>
+      {isUp ? "▲" : "▼"} {Math.abs(pct).toFixed(2)}%
+    </span>
+  );
+}
+
 export function Home() {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
@@ -25,6 +35,7 @@ export function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tonPrice, setTonPrice] = useState<TonPrice | null>(null);
+  const [sort, setSort] = useState<TokenSort>("liquidity");
 
   useEffect(() => {
     // GRAM (ticker desde o rebrand de jun/2026, ex-Toncoin/TON) é a moeda
@@ -50,14 +61,14 @@ export function Home() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    listTokens(PAGE_SIZE, page * PAGE_SIZE, search || undefined)
+    listTokens(PAGE_SIZE, page * PAGE_SIZE, search || undefined, sort)
       .then((result) => {
         setTokens(result.items);
         setTotal(result.total);
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, sort]);
 
   // A API já ordena por liquidez desc, então os primeiros da página 0 (sem
   // busca ativa) são os "destaques" de verdade — não é uma lista escolhida
@@ -67,6 +78,11 @@ export function Home() {
 
   function openToken(address: string) {
     navigate(`/token/${address}`);
+  }
+
+  function changeSort(next: TokenSort) {
+    setSort(next);
+    setPage(0);
   }
 
   return (
@@ -92,6 +108,23 @@ export function Home() {
           )}
         </div>
       )}
+
+      <div className="pt-tabs">
+        <button
+          className="pt-tab"
+          data-active={sort === "liquidity"}
+          onClick={() => changeSort("liquidity")}
+        >
+          Liquidez
+        </button>
+        <button
+          className="pt-tab"
+          data-active={sort === "market_cap"}
+          onClick={() => changeSort("market_cap")}
+        >
+          Capitalização
+        </button>
+      </div>
 
       <input
         type="search"
@@ -143,6 +176,8 @@ export function Home() {
                 <th>#</th>
                 <th>Nome</th>
                 <th style={{ textAlign: "right" }}>Preço</th>
+                <th style={{ textAlign: "right" }}>24h</th>
+                <th style={{ textAlign: "right" }}>Cap. de Mercado</th>
                 <th style={{ textAlign: "right" }}>Liquidez</th>
               </tr>
             </thead>
@@ -159,6 +194,16 @@ export function Home() {
                   <td className="pt-table-price">
                     {token.price_usd != null ? (
                       `$${formatPrice(token.price_usd)}`
+                    ) : (
+                      <span className="pt-muted">—</span>
+                    )}
+                  </td>
+                  <td className="pt-table-price">
+                    <ChangeCell pct={token.change_24h} />
+                  </td>
+                  <td className="pt-table-liquidity">
+                    {token.market_cap_usd != null ? (
+                      formatLiquidity(token.market_cap_usd)
                     ) : (
                       <span className="pt-muted">—</span>
                     )}

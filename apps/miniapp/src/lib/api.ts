@@ -7,8 +7,15 @@ export interface Token {
   image?: string | null;
   price_usd?: number | null;
   liquidity_usd?: number | null;
+  holders_count?: number | null;
+  market_cap_usd?: number | null;
+  change_24h?: number | null;
+  change_7d?: number | null;
+  change_30d?: number | null;
   tonscan_url: string;
 }
+
+export type TokenSort = "liquidity" | "market_cap";
 
 export interface TokenPage {
   items: Token[];
@@ -35,9 +42,14 @@ async function getJSON<T>(path: string): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
-export function listTokens(limit: number, offset: number, q?: string): Promise<TokenPage> {
+export function listTokens(
+  limit: number,
+  offset: number,
+  q?: string,
+  sort: TokenSort = "liquidity",
+): Promise<TokenPage> {
   const query = q ? `&q=${encodeURIComponent(q)}` : "";
-  return getJSON<TokenPage>(`/api/tokens/?limit=${limit}&offset=${offset}${query}`);
+  return getJSON<TokenPage>(`/api/tokens/?limit=${limit}&offset=${offset}&sort=${sort}${query}`);
 }
 
 export function getToken(address: string): Promise<Token> {

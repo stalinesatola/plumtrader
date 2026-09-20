@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Float, Index, Integer, String
+from sqlalchemy import BigInteger, Float, Index, Integer, String, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -32,6 +32,8 @@ class TokenRow(Base):
     name: Mapped[str] = mapped_column(String)
     price_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     liquidity_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    holders_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    market_cap_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
     updated_at: Mapped[int] = mapped_column(BigInteger)
 
 
@@ -54,6 +56,15 @@ class PriceHistoryRow(Base):
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # create_all só cria tabelas que não existem — não adiciona
+        # colunas numa tabela já existente em produção. Migração leve e
+        # idempotente para as colunas adicionadas depois do deploy
+        # inicial.
+        for statement in (
+            "ALTER TABLE tokens ADD COLUMN IF NOT EXISTS holders_count INTEGER",
+            "ALTER TABLE tokens ADD COLUMN IF NOT EXISTS market_cap_usd FLOAT",
+        ):
+            await conn.execute(text(statement))
 
 
 async def get_session() -> AsyncSession:

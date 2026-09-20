@@ -97,6 +97,21 @@ def _pool_liquidity_usd(pool: dict) -> float:
         return 0.0
 
 
+def _market_cap_usd(price_usd: float | None, total_supply_raw: object, decimals: int) -> float | None:
+    """Cap. de mercado = preço × total_supply ajustado por decimais.
+
+    total_supply vem no nível raiz do JettonInfo (TEP-74), não dentro de
+    metadata. Sem preço ou sem total_supply, não calcula (nunca inventa).
+    """
+    if price_usd is None or total_supply_raw is None:
+        return None
+    try:
+        total_supply = float(total_supply_raw) / (10**decimals)
+        return price_usd * total_supply
+    except (TypeError, ValueError):
+        return None
+
+
 def _derive_price_usd(pool: dict, is_token0: bool, decimals: int) -> float | None:
     """Deriva o preço do token em USD a partir das reservas do pool.
 
@@ -170,6 +185,14 @@ async def refresh_featured_tokens() -> None:
                 decimals = 9
             price_usd = _derive_price_usd(pool, is_token0, decimals)
 
+            # holders_count e total_supply vêm no nível raiz do JettonInfo
+            # (não dentro de metadata) — mesmo objeto `info` que já
+            # buscamos pra pegar symbol/name/decimals.
+            holders_count = info.get("holders_count")
+            if not isinstance(holders_count, int):
+                holders_count = None
+            market_cap_usd = _market_cap_usd(price_usd, info.get("total_supply"), decimals)
+
             stmt = (
                 insert(TokenRow)
                 .values(
@@ -178,6 +201,8 @@ async def refresh_featured_tokens() -> None:
                     name=metadata.get("name", "Unknown"),
                     price_usd=price_usd,
                     liquidity_usd=liquidity_usd,
+                    holders_count=holders_count,
+                    market_cap_usd=market_cap_usd,
                     updated_at=now,
                 )
                 .on_conflict_do_update(
@@ -187,6 +212,8 @@ async def refresh_featured_tokens() -> None:
                         "name": metadata.get("name", "Unknown"),
                         "price_usd": price_usd,
                         "liquidity_usd": liquidity_usd,
+                        "holders_count": holders_count,
+                        "market_cap_usd": market_cap_usd,
                         "updated_at": now,
                     },
                 )

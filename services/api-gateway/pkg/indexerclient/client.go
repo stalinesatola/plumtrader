@@ -40,11 +40,14 @@ func (c *Client) get(path string, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-func (c *Client) ListTokens(limit, offset int, q string) (*TokenPage, error) {
+func (c *Client) ListTokens(limit, offset int, q, sort string) (*TokenPage, error) {
 	var page TokenPage
 	path := fmt.Sprintf("/tokens?limit=%d&offset=%d", limit, offset)
 	if q != "" {
 		path += "&q=" + url.QueryEscape(q)
+	}
+	if sort != "" {
+		path += "&sort=" + url.QueryEscape(sort)
 	}
 	if err := c.get(path, &page); err != nil {
 		return nil, err
@@ -103,5 +106,9 @@ type Token struct {
 	PriceTON     *float64 `json:"price_ton"`
 	LiquidityUSD *float64 `json:"liquidity_usd"`
 	HoldersCount *int     `json:"holders_count"`
+	MarketCapUSD *float64 `json:"market_cap_usd"`
+	Change24h    *float64 `json:"change_24h"`
+	Change7d     *float64 `json:"change_7d"`
+	Change30d    *float64 `json:"change_30d"`
 	TonscanURL   string   `json:"tonscan_url"`
 }

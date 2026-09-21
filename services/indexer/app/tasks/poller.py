@@ -6,7 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 
-from app.clients.dex import stonfi_client
+from app.clients.dex import dedust_client, stonfi_client
 from app.clients.tonapi import tonapi_client
 from app.config import settings
 from app.db import PriceHistoryRow, TokenRow, async_session
@@ -134,29 +134,105 @@ def _derive_price_usd(pool: dict, is_token0: bool, decimals: int) -> float | Non
         return None
 
 
-async def refresh_featured_tokens() -> None:
-    """Popula/atualiza os tokens de maior liquidez nos pools do STON.fi.
+def _dedust_pool_liquidity_and_price(
+    pool: dict, ton_price_usd: float | None
+) -> tuple[str, float, float] | None:
+    """Deriva liquidez/preço em USD de um pool do DeDust (schema real,
+    verificado em github.com/dedust-io/sdk: `assets`/`reserves` são pares
+    na mesma ordem, cada asset é `{type: 'native'}` ou `{type: 'jetton',
+    address, metadata: {decimals, ...}}`).
 
-    Usa dados reais de mercado (liquidez e reservas em USD) em vez de uma
-    lista escolhida à mão, e reaproveita o mesmo endereço de contrato que
-    o STON.fi já expõe — nunca inventamos endereço de jetton aqui.
+    Ao contrário do STON.fi (que já expõe `lp_total_supply_usd` pronto), o
+    DeDust só dá reservas brutas — só é possível converter pra USD sem
+    inventar quando um dos lados do pool é o próprio TON nativo (usamos a
+    cotação real de `/ton-price`). Pools jetton/jetton (sem lado TON)
+    ficam de fora: não há como bootstrapar o valor em USD com dado real.
     """
+    if not ton_price_usd:
+        return None
+    assets = pool.get("assets") or []
+    reserves = pool.get("reserves") or []
+    if len(assets) != 2 or len(reserves) != 2:
+        return None
+
+    native_idx = next((i for i, a in enumerate(assets) if a.get("type") == "native"), None)
+    if native_idx is None:
+        return None
+    jetton_idx = 1 - native_idx
+    jetton_asset = assets[jetton_idx]
+    if jetton_asset.get("type") != "jetton":
+        return None
+    address = jetton_asset.get("address")
+    if not address:
+        return None
+
     try:
-        data = await stonfi_client.get_pools()
-    except Exception:
-        logger.exception("failed to fetch STON.fi pools for featured tokens")
-        return
+        reserve_ton = float(reserves[native_idx]) / 1e9
+        decimals = int((jetton_asset.get("metadata") or {}).get("decimals", 9))
+        reserve_jetton = float(reserves[jetton_idx]) / (10**decimals)
+        if reserve_ton <= 0 or reserve_jetton <= 0:
+            return None
+        reserve_ton_usd = reserve_ton * ton_price_usd
+        # Mesma aproximação 50/50 de pool constant-product já usada pro
+        # STON.fi em `_derive_price_usd`.
+        return address, reserve_ton_usd * 2, reserve_ton_usd / reserve_jetton
+    except (TypeError, ValueError):
+        return None
+
+
+async def refresh_featured_tokens() -> None:
+    """Popula/atualiza os tokens de maior liquidez nos pools do STON.fi e
+    do DeDust — duas fontes reais de mercado (nunca uma lista escolhida à
+    mão), reaproveitando os mesmos endereços de contrato que os DEXes já
+    expõem.
+    """
+    results = await asyncio.gather(
+        stonfi_client.get_pools(),
+        dedust_client.get_pools(),
+        tonapi_client.get_rates(tokens="ton", currencies="usd"),
+        return_exceptions=True,
+    )
+    stonfi_data, dedust_data, ton_rates_data = results
+
+    if isinstance(stonfi_data, Exception):
+        logger.warning("failed to fetch STON.fi pools for featured tokens: %s", stonfi_data)
+        stonfi_data = {}
+    if isinstance(dedust_data, Exception):
+        logger.warning("failed to fetch DeDust pools for featured tokens: %s", dedust_data)
+        dedust_data = []
+
+    # Preço do TON em USD: única forma de converter as reservas brutas do
+    # DeDust pra USD sem inventar (STON.fi já dá liquidez em USD pronta).
+    ton_price_usd = None
+    if isinstance(ton_rates_data, Exception):
+        logger.warning("failed to fetch TON/USD rate for DeDust price derivation: %s", ton_rates_data)
+    else:
+        try:
+            ton_price_usd = float(ton_rates_data.get("rates", {}).get("TON", {}).get("prices", {}).get("USD"))
+        except (TypeError, ValueError):
+            ton_price_usd = None
 
     active_pools = [
         p
-        for p in data.get("pool_list", [])
+        for p in stonfi_data.get("pool_list", [])
         if not p.get("deprecated") and _pool_liquidity_usd(p) >= MIN_FEATURED_LIQUIDITY_USD
     ]
-    top_pools = sorted(active_pools, key=_pool_liquidity_usd, reverse=True)[:FEATURED_POOL_LIMIT]
+    top_stonfi_pools = sorted(active_pools, key=_pool_liquidity_usd, reverse=True)[:FEATURED_POOL_LIMIT]
 
-    # endereço -> (liquidez, pool onde apareceu com mais liquidez, é token0?)
-    best: dict[str, tuple[float, dict, bool]] = {}
-    for pool in top_pools:
+    dedust_derived = [
+        derived
+        for pool in dedust_data
+        if (derived := _dedust_pool_liquidity_and_price(pool, ton_price_usd)) is not None
+        and derived[1] >= MIN_FEATURED_LIQUIDITY_USD
+    ]
+    dedust_derived.sort(key=lambda d: d[1], reverse=True)
+    top_dedust_pools = dedust_derived[:FEATURED_POOL_LIMIT]
+
+    # endereço -> (liquidez_usd, fonte, payload). payload é (pool, is_token0)
+    # pro STON.fi (preço calculado depois, já com os decimais da TonAPI) ou
+    # o price_usd já pronto pro DeDust (decimais vieram inline no pool).
+    best: dict[str, tuple[float, str, object]] = {}
+    for pool in top_stonfi_pools:
         liquidity = _pool_liquidity_usd(pool)
         for is_token0, address in (
             (True, pool.get("token0_address")),
@@ -166,12 +242,17 @@ async def refresh_featured_tokens() -> None:
                 continue
             current = best.get(address)
             if current is None or liquidity > current[0]:
-                best[address] = (liquidity, pool, is_token0)
+                best[address] = (liquidity, "stonfi", (pool, is_token0))
+
+    for address, liquidity, price_usd in top_dedust_pools:
+        current = best.get(address)
+        if current is None or liquidity > current[0]:
+            best[address] = (liquidity, "dedust", price_usd)
 
     async with async_session() as session:
         total = 0
         now = int(time.time())
-        for address, (liquidity_usd, pool, is_token0) in best.items():
+        for address, (liquidity_usd, source, payload) in best.items():
             try:
                 info = await tonapi_client.get_jetton(address)
             except Exception:
@@ -183,7 +264,12 @@ async def refresh_featured_tokens() -> None:
                 decimals = int(metadata.get("decimals") or 9)
             except (TypeError, ValueError):
                 decimals = 9
-            price_usd = _derive_price_usd(pool, is_token0, decimals)
+
+            if source == "stonfi":
+                pool, is_token0 = payload
+                price_usd = _derive_price_usd(pool, is_token0, decimals)
+            else:
+                price_usd = payload
 
             # holders_count e total_supply vêm no nível raiz do JettonInfo
             # (não dentro de metadata) — mesmo objeto `info` que já
@@ -234,7 +320,12 @@ async def refresh_featured_tokens() -> None:
         await session.execute(delete(PriceHistoryRow).where(PriceHistoryRow.recorded_at < cutoff))
 
         await session.commit()
-        logger.info("refreshed %d featured tokens from STON.fi pools", total)
+        logger.info(
+            "refreshed %d featured tokens (%d STON.fi pools, %d DeDust pools)",
+            total,
+            len(top_stonfi_pools),
+            len(top_dedust_pools),
+        )
 
 
 def start_scheduler() -> AsyncIOScheduler:

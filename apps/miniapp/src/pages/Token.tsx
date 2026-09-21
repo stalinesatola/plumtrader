@@ -9,11 +9,12 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-6)}`;
 }
 
-// STON.fi é o mesmo DEX de onde já lemos pools/liquidez no backend — aqui só
-// montamos o link público do swap deles (ft = token de origem, tt = destino),
-// sem tentar montar a transação de swap nós mesmos (protocolo de roteamento
-// do DEX é complexo demais pra arriscar um payload incorreto).
+// STON.fi e DeDust são os mesmos DEXs de onde já lemos pools/liquidez no
+// backend — aqui só montamos o link público do swap de cada um, sem tentar
+// montar a transação de swap nós mesmos (protocolo de roteamento de DEX é
+// complexo demais pra arriscar um payload incorreto).
 const STONFI_SWAP_URL = "https://app.ston.fi/swap";
+const DEDUST_SWAP_BASE_URL = "https://dedust.io/swap";
 
 const HISTORY_PERIODS = [
   { label: "1D", days: 1 },
@@ -161,7 +162,7 @@ export function Token() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Comprar
+                Comprar (STON.fi)
               </a>
               <a
                 className="pt-button pt-sell-button"
@@ -169,12 +170,30 @@ export function Token() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Vender
+                Vender (STON.fi)
+              </a>
+            </div>
+            <div className="pt-buy-sell-row">
+              <a
+                className="pt-button pt-buy-button"
+                href={`${DEDUST_SWAP_BASE_URL}/TON/${encodeURIComponent(token.address)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Comprar (DeDust)
+              </a>
+              <a
+                className="pt-button pt-sell-button"
+                href={`${DEDUST_SWAP_BASE_URL}/${encodeURIComponent(token.address)}/TON`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Vender (DeDust)
               </a>
             </div>
             <p className="pt-token-description">
-              Abre o swap no STON.fi (mesma fonte de liquidez usada aqui) — você assina direto na sua
-              wallet conectada lá, o PlumTrader nunca guarda suas chaves.
+              Abre o swap direto no STON.fi ou no DeDust (mesmas fontes de liquidez usadas aqui) — você
+              assina lá, na sua wallet conectada; o PlumTrader nunca guarda suas chaves.
             </p>
           </section>
         </>

@@ -134,13 +134,23 @@ def _derive_price_usd(pool: dict, is_token0: bool, decimals: int) -> float | Non
         return None
 
 
-def _dedust_pool_liquidity_and_price(
+def _dedust_pool_liquidity_and_reserve(
     pool: dict, ton_price_usd: float | None
-) -> tuple[str, float, float] | None:
-    """Deriva liquidez/preço em USD de um pool do DeDust (schema real,
-    verificado em github.com/dedust-io/sdk: `assets`/`reserves` são pares
-    na mesma ordem, cada asset é `{type: 'native'}` ou `{type: 'jetton',
-    address, metadata: {decimals, ...}}`).
+) -> tuple[str, float, float, float] | None:
+    """Deriva liquidez em USD e a reserva bruta do jetton num pool do
+    DeDust (schema real, verificado em github.com/dedust-io/sdk:
+    `assets`/`reserves` são pares na mesma ordem, cada asset é
+    `{type: 'native'}` ou `{type: 'jetton', address, metadata}`).
+
+    NÃO ajusta a reserva por decimais aqui, de propósito: em produção o
+    `metadata` do lado jetton às vezes vem `null` (visto em pools reais do
+    DeDust), então usar `metadata.decimals` daria um valor errado (caindo
+    no default 9) sempre que o token real tivesse outro número de casas —
+    preço/liquidez sairiam errados por ordens de grandeza sem nenhum
+    aviso. Os decimais confiáveis vêm depois da chamada à TonAPI (mesmo
+    padrão já usado pro STON.fi em `_derive_price_usd`), então só
+    devolvemos aqui a reserva crua pra conversão ser feita com o valor
+    certo.
 
     Ao contrário do STON.fi (que já expõe `lp_total_supply_usd` pronto), o
     DeDust só dá reservas brutas — só é possível converter pra USD sem
@@ -168,15 +178,26 @@ def _dedust_pool_liquidity_and_price(
 
     try:
         reserve_ton = float(reserves[native_idx]) / 1e9
-        decimals = int((jetton_asset.get("metadata") or {}).get("decimals", 9))
-        reserve_jetton = float(reserves[jetton_idx]) / (10**decimals)
-        if reserve_ton <= 0 or reserve_jetton <= 0:
+        reserve_jetton_raw = float(reserves[jetton_idx])
+        if reserve_ton <= 0 or reserve_jetton_raw <= 0:
             return None
         reserve_ton_usd = reserve_ton * ton_price_usd
         # Mesma aproximação 50/50 de pool constant-product já usada pro
         # STON.fi em `_derive_price_usd`.
-        return address, reserve_ton_usd * 2, reserve_ton_usd / reserve_jetton
+        return address, reserve_ton_usd * 2, reserve_ton_usd, reserve_jetton_raw
     except (TypeError, ValueError):
+        return None
+
+
+def _dedust_price_usd(reserve_ton_usd: float, reserve_jetton_raw: float, decimals: int) -> float | None:
+    """Segunda metade do cálculo acima, aplicada só depois que os decimais
+    confiáveis chegam da TonAPI."""
+    try:
+        reserve_jetton = reserve_jetton_raw / (10**decimals)
+        if reserve_jetton <= 0:
+            return None
+        return reserve_ton_usd / reserve_jetton
+    except (TypeError, ValueError, ZeroDivisionError):
         return None
 
 
@@ -222,15 +243,16 @@ async def refresh_featured_tokens() -> None:
     dedust_derived = [
         derived
         for pool in dedust_data
-        if (derived := _dedust_pool_liquidity_and_price(pool, ton_price_usd)) is not None
+        if (derived := _dedust_pool_liquidity_and_reserve(pool, ton_price_usd)) is not None
         and derived[1] >= MIN_FEATURED_LIQUIDITY_USD
     ]
     dedust_derived.sort(key=lambda d: d[1], reverse=True)
     top_dedust_pools = dedust_derived[:FEATURED_POOL_LIMIT]
 
     # endereço -> (liquidez_usd, fonte, payload). payload é (pool, is_token0)
-    # pro STON.fi (preço calculado depois, já com os decimais da TonAPI) ou
-    # o price_usd já pronto pro DeDust (decimais vieram inline no pool).
+    # pro STON.fi, ou (reserve_ton_usd, reserve_jetton_raw) pro DeDust — em
+    # ambos os casos o preço final só é calculado depois, já com os
+    # decimais confiáveis vindos da chamada à TonAPI.
     best: dict[str, tuple[float, str, object]] = {}
     for pool in top_stonfi_pools:
         liquidity = _pool_liquidity_usd(pool)
@@ -244,10 +266,10 @@ async def refresh_featured_tokens() -> None:
             if current is None or liquidity > current[0]:
                 best[address] = (liquidity, "stonfi", (pool, is_token0))
 
-    for address, liquidity, price_usd in top_dedust_pools:
+    for address, liquidity, reserve_ton_usd, reserve_jetton_raw in top_dedust_pools:
         current = best.get(address)
         if current is None or liquidity > current[0]:
-            best[address] = (liquidity, "dedust", price_usd)
+            best[address] = (liquidity, "dedust", (reserve_ton_usd, reserve_jetton_raw))
 
     async with async_session() as session:
         total = 0
@@ -269,7 +291,8 @@ async def refresh_featured_tokens() -> None:
                 pool, is_token0 = payload
                 price_usd = _derive_price_usd(pool, is_token0, decimals)
             else:
-                price_usd = payload
+                reserve_ton_usd, reserve_jetton_raw = payload
+                price_usd = _dedust_price_usd(reserve_ton_usd, reserve_jetton_raw, decimals)
 
             # holders_count e total_supply vêm no nível raiz do JettonInfo
             # (não dentro de metadata) — mesmo objeto `info` que já

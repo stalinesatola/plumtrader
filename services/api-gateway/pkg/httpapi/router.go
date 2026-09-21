@@ -95,6 +95,17 @@ func NewRouter(indexerClient *indexerclient.Client) http.Handler {
 			}
 			writeJSON(w, http.StatusOK, points)
 		})
+
+		r.Get("/{address}/pools", func(w http.ResponseWriter, r *http.Request) {
+			address := chi.URLParam(r, "address")
+
+			pools, err := indexerClient.GetPools(address)
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+				return
+			}
+			writeJSON(w, http.StatusOK, pools)
+		})
 	})
 
 	return r

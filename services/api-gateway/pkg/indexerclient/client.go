@@ -82,6 +82,23 @@ type PricePoint struct {
 	PriceUSD  float64 `json:"price_usd"`
 }
 
+func (c *Client) GetPools(address string) (*Pools, error) {
+	var pools Pools
+	if err := c.get("/tokens/"+address+"/pools", &pools); err != nil {
+		return nil, err
+	}
+	return &pools, nil
+}
+
+// StonfiPools/DedustPools ficam como `any` porque o indexer repassa o pool
+// bruto de cada DEX (formato diferente entre STON.fi e DeDust) — o gateway
+// só encaminha, não precisa tipar campo a campo.
+type Pools struct {
+	Address     string `json:"address"`
+	StonfiPools []any  `json:"stonfi_pools"`
+	DedustPools []any  `json:"dedust_pools"`
+}
+
 func (c *Client) GetTonPrice() (*TonPrice, error) {
 	var price TonPrice
 	if err := c.get("/ton-price", &price); err != nil {

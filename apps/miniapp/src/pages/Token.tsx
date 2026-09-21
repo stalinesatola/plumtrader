@@ -1,4 +1,3 @@
-import { TonConnectButton } from "@tonconnect/ui-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -155,7 +154,6 @@ export function Token() {
           </div>
 
           <section className="pt-section">
-            <TonConnectButton />
             <div className="pt-buy-sell-row">
               <a
                 className="pt-button pt-buy-button"
